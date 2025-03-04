@@ -1,0 +1,66 @@
+[package]
+name = "procedural_planet"
+version = "0.1.0"
+publish = false
+authors = ["Sindre B <mail@sindrebakken.dev>"]
+edition = "2021"
+exclude = ["assets"]
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[features]
+dev = [
+    "bevy/dynamic_linking",
+    "bevy/bevy_debug_stepping",
+    "bevy/bevy_dev_tools",
+]
+
+[dependencies]
+bevy = { version = "0.15", default-features = false, features = [
+    "animation",
+    "bevy_asset",
+    "bevy_state",
+    "bevy_color",
+    "bevy_window",
+    "bevy_winit",
+    "bevy_core_pipeline",
+    "bevy_pbr",
+    "bevy_picking",
+    "bevy_gizmos",
+    "bevy_mesh_picking_backend",
+    "bevy_ui_picking_backend",
+    "bevy_render",
+    "file_watcher",
+    "bevy_text",
+    "bevy_ui",
+    "serialize",
+    "multi_threaded",
+    "sysinfo_plugin",
+    "tonemapping_luts",
+    "default_font",
+] }
+
+
+bevy_kira_audio = { version = "0.22" }
+bevy_asset_loader = { version = "0.22" }
+bevy-inspector-egui = "0.29"
+bevy_panorbit_camera = { version = "0.23", features = ["bevy_egui"] }
+gigs = "0.1"
+avian3d = { version = "0.2" }
+winit = { version = "0.30", default-features = false }
+image = { version = "0.25", default-features = false }
+thiserror = "2"
+log = { version = "0.4", features = ["max_level_trace", "release_max_level_warn"] }
+
+[build-dependencies]
+embed-resource = "3.0.1"
