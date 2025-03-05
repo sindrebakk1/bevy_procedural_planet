@@ -1,6 +1,8 @@
-use crate::plugins::terrain::helpers::cube_to_sphere;
 use bevy::math::{Dir3, Rect, Vec2, Vec3};
+use bevy::prelude::Component;
 use std::fmt::Formatter;
+
+use super::helpers::cube_to_sphere;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 #[repr(u8)]
@@ -63,7 +65,7 @@ impl From<Axis> for Vec3 {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Component, Clone, Debug)]
 pub struct CubeTree {
     pub faces: [(Axis, CubeTreeNode); 6],
     half_size: f32,
@@ -119,12 +121,14 @@ impl CubeTreeNode {
     const COLLIDER_RADIUS: f32 = 24.0;
 
     pub fn new(half_size: f32, face: Axis) -> Self {
-        Self::Leaf {
+        let mut node = Self::Leaf {
             collider: false,
             half_size,
             face,
             bounds: Rect::from_center_half_size(Vec2::ZERO, Vec2::splat(half_size)),
-        }
+        };
+        node.subdivide();
+        node
     }
 
     pub fn bounds(&self) -> Rect {

@@ -32,7 +32,7 @@ pub struct ChunkMeshBuilder {
 
 #[allow(unused)]
 impl ChunkMeshBuilder {
-    const SUBDIVISIONS: u32 = 8;
+    const SUBDIVISIONS: u32 = 6;
     pub fn new(radius: f32) -> Self {
         Self { radius }
     }

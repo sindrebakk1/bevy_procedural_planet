@@ -2,6 +2,19 @@
 use crate::plugins::terrain::cube_tree::Axis;
 use bevy::math::Vec3;
 
+const fn cos_approx(x: f32) -> f32 {
+    let x2 = x * x;
+    1.0 - (x2 / 2.0) + (x2 * x2 / 24.0) // Approximate cos(x) using a few terms of Taylor series
+}
+
+const fn deg_to_rad(degrees: f32) -> f32 {
+    degrees * std::f32::consts::PI / 180.0
+}
+
+pub const fn dot_product_from_angle_deg(degrees: f32) -> f32 {
+    cos_approx(deg_to_rad(degrees))
+}
+
 pub fn cube_to_sphere(pos: Vec3, radius: f32) -> Vec3 {
     let p = pos / radius;
     let (x2, y2, z2) = (p.x * p.x, p.y * p.y, p.z * p.z);

@@ -13,7 +13,7 @@ impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(WireframeConfig {
             global: true,
-            default_color: Color::WHITE.darker(0.2),
+            default_color: Color::WHITE.darker(0.4),
         })
         .add_plugins((
             FrameTimeDiagnosticsPlugin,

@@ -8,7 +8,7 @@ use bevy::prelude::{Component, Entity, FromWorld, Resource, World};
 
 #[cfg(debug_assertions)]
 use crate::materials::debug::{DebugNormalsMaterial, DebugUVsMaterial};
-use crate::plugins::terrain::planet::Chunk;
+use crate::plugins::terrain::body::Chunk;
 
 #[derive(Resource, Clone, Debug)]
 pub struct TerrainMaterials {
@@ -24,9 +24,10 @@ impl FromWorld for TerrainMaterials {
         let standard_handle = world
             .get_resource_mut::<Assets<StandardMaterial>>()
             .expect("Expected Assets<StandardMaterial> to exist")
-            .add(StandardMaterial::from_color(Color::linear_rgb(
-                0.6, 0.32, 0.14,
-            )));
+            .add(StandardMaterial {
+                base_color: Color::linear_rgb(0.12, 0.64, 0.14),
+                ..Default::default()
+            });
 
         #[cfg(debug_assertions)]
         let (debug_normals_handle, debug_uvs_handle) = (

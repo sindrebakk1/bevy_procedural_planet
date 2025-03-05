@@ -1,26 +1,27 @@
-mod keybinds;
-mod materials;
-mod plugins;
-mod state;
-mod utils;
+pub mod constants;
+pub mod keybinds;
+pub mod materials;
+pub mod plugins;
+pub mod state;
 
 #[cfg(debug_assertions)]
-mod debug;
-mod physics;
+pub mod debug;
 
-use crate::materials::GlobalMaterialsPlugin;
-use crate::plugins::asset_loader::AssetLoaderPlugin;
-use crate::plugins::player::Player;
-use crate::plugins::terrain::planet::Planet;
-use crate::plugins::terrain::TerrainPlugin;
-use crate::state::GameState;
 use avian3d::PhysicsPlugins;
 use bevy::app::{App, Plugin, Startup};
 use bevy::color::Color;
 use bevy::math::Vec3;
 use bevy::pbr::AmbientLight;
-use bevy::prelude::{AppExtStates, ClearColor, Commands};
+use bevy::prelude::{AppExtStates, ClearColor, Commands, Component};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+
+use crate::materials::GlobalMaterialsPlugin;
+use crate::plugins::asset_loader::AssetLoaderPlugin;
+// use crate::plugins::player::Player;
+use crate::constants::physics::MOON_DIAMETER_M;
+use crate::plugins::terrain::body::{Body, BodyPreset};
+use crate::plugins::terrain::TerrainPlugin;
+use crate::state::GameState;
 
 pub struct GamePlugin;
 
@@ -37,7 +38,7 @@ impl Plugin for GamePlugin {
                 AssetLoaderPlugin,
                 PanOrbitCameraPlugin,
                 GlobalMaterialsPlugin,
-                TerrainPlugin::<Player>::default(),
+                TerrainPlugin::<OrbitCamera>::default(),
             ))
             .add_systems(Startup, setup);
 
@@ -49,16 +50,18 @@ impl Plugin for GamePlugin {
     }
 }
 
+#[derive(Component, Default)]
+pub struct OrbitCamera;
+
 fn setup(mut commands: Commands) {
     commands.spawn((
-        Player,
+        OrbitCamera,
         PanOrbitCamera {
             focus: Vec3::ZERO,
-            radius: Some(2000.0),
-            zoom_upper_limit: Some(1_000_000.0),
-            zoom_lower_limit: 501.0,
+            radius: Some(MOON_DIAMETER_M),
+            zoom_lower_limit: (MOON_DIAMETER_M / 2.0) + 5.0,
             ..Default::default()
         },
     ));
-    commands.spawn(Planet::new(1000.0));
+    commands.spawn(Body::from_preset(BodyPreset::MOON));
 }

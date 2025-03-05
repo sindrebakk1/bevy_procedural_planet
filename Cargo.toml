@@ -61,6 +61,8 @@ winit = { version = "0.30", default-features = false }
 image = { version = "0.25", default-features = false }
 thiserror = "2"
 log = { version = "0.4", features = ["max_level_trace", "release_max_level_warn"] }
+bevy-tnua = "0.21.0"
+bevy-tnua-avian3d = "0.2.0"
 
 [build-dependencies]
 embed-resource = "3.0.1"

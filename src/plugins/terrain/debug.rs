@@ -1,6 +1,6 @@
 use crate::keybinds::{TOGGLE_DEBUG_NORMALS, TOGGLE_DEBUG_UVS};
+use crate::plugins::terrain::body::Body;
 use crate::plugins::terrain::material::{TerrainMaterial, TerrainMaterials};
-use crate::plugins::terrain::planet::Planet;
 use bevy::app::{App, Plugin, Update};
 use bevy::prelude::{
     resource_changed, ButtonInput, Commands, Entity, Event, IntoSystemConfigs, KeyCode, Local,
@@ -25,7 +25,7 @@ fn update_active_material(
     mut commands: Commands,
     input: Res<ButtonInput<KeyCode>>,
     terrain_materials: Res<TerrainMaterials>,
-    query: Query<Entity, With<Planet>>,
+    query: Query<Entity, With<Body>>,
     mut debug_normals_enabled: Local<bool>,
     mut debug_uvs_enabled: Local<bool>,
 ) {
