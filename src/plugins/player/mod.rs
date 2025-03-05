@@ -1,4 +1,4 @@
-pub mod tuna_controller;
+pub mod controller;
 
 use avian3d::collision::ColliderConstructor;
 use bevy::ecs::component::ComponentId;
@@ -8,7 +8,7 @@ use bevy::prelude::{
     StandardMaterial, Transform,
 };
 
-use tuna_controller::{CharacterController, CharacterControllerPlugin};
+use controller::{CharacterController, CharacterControllerPlugin};
 
 #[derive(Component, Default)]
 #[require(Transform, CharacterController, Name(|| Name::new("Player")))]
