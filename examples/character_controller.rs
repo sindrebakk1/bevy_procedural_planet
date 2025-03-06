@@ -3,7 +3,7 @@ use avian3d::prelude::RigidBody;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use procedural_planet::plugins::physics::PhysicsPlugin;
-use procedural_planet::plugins::player::tuna_controller::controls::ControllerCamera;
+use procedural_planet::plugins::player::controller::controls::ControllerCamera;
 use procedural_planet::plugins::player::{Player, PlayerPlugin};
 
 fn main() {

@@ -150,7 +150,8 @@ fn on_add_chunk(mut world: DeferredWorld, entity: Entity, _id: ComponentId) {
     };
 
     #[cfg(not(debug_assertions))]
-    commands
+    world
+        .commands()
         .entity(entity)
         .insert(MeshMaterial3d(material.handle()));
 }

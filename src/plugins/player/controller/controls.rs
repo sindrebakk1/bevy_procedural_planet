@@ -190,7 +190,7 @@ pub fn apply_camera_controls(
 
     for mut camera in camera_query.iter_mut() {
         camera.translation =
-            player_transform.translation() + -5.0 * forward_from_camera.forward + 1.0 * Vec3::Y;
+            player_transform.translation() + -10.0 * forward_from_camera.forward + 1.0 * Vec3::Y;
         camera.look_to(forward_from_camera.forward, Vec3::Y);
         let pitch_axis = camera.left();
         camera.rotate_around(
