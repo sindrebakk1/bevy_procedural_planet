@@ -14,11 +14,12 @@ use bevy::utils::HashMap;
 use bevy_inspector_egui::inspector_options::ReflectInspectorOptions;
 use bevy_inspector_egui::InspectorOptions;
 use std::hash::{Hash, Hasher};
+use std::ops::Div;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct BodyPreset {
-    mass: f32,
-    radius: f32,
+    pub mass: f32,
+    pub radius: f32,
 }
 
 impl BodyPreset {
@@ -31,6 +32,17 @@ impl BodyPreset {
         mass: MOON_MASS_KG,
         radius: MOON_DIAMETER_M / 2.0,
     };
+}
+
+impl Div<f32> for BodyPreset {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        let mut res = self;
+        res.mass /= rhs;
+        res.radius /= rhs;
+        res
+    }
 }
 
 #[derive(Event, Copy, Clone, Default)]

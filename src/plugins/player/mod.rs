@@ -1,15 +1,26 @@
-pub mod controller;
+#[cfg(feature = "tnua_controller")]
+pub mod tnua_controller;
+#[cfg(not(feature = "tnua_controller"))]
+pub mod kinematic_controller;
 
 use avian3d::collision::ColliderConstructor;
 use bevy::ecs::component::ComponentId;
 use bevy::ecs::world::DeferredWorld;
-use bevy::prelude::{
-    App, Assets, Capsule3d, Color, Component, Entity, Mesh, Mesh3d, MeshMaterial3d, Name, Plugin,
-    StandardMaterial, Transform,
-};
+use bevy::prelude::*;
 
-use controller::{CharacterController, CharacterControllerPlugin};
+#[cfg(feature = "tnua_controller")]
+use tnua_controller::{CharacterController, CharacterControllerPlugin};
 
+#[cfg(not(feature = "tnua_controller"))]
+use kinematic_controller::{Controller, KinematicCharacterControllerPlugin};
+
+#[cfg(feature = "tnua_controller")]
+#[derive(Component, Default)]
+#[require(Transform, CharacterController, Name(|| Name::new("Player")))]
+#[component(on_add = on_add_player)]
+pub struct Player;
+
+#[cfg(not(feature = "tnua_controller"))]
 #[derive(Component, Default)]
 #[require(Transform, CharacterController, Name(|| Name::new("Player")))]
 #[component(on_add = on_add_player)]
@@ -36,6 +47,11 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "tnua_controller")]
         app.add_plugins(CharacterControllerPlugin);
+
+        #[cfg(not(feature = "tnua_controller"))]
+        app.add_plugins(KinematicCharacterControllerPlugin);
     }
+
 }

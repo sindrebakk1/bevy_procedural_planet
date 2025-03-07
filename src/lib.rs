@@ -18,7 +18,6 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use crate::materials::GlobalMaterialsPlugin;
 use crate::plugins::asset_loader::AssetLoaderPlugin;
 // use crate::plugins::player::Player;
-use crate::constants::physics::MOON_DIAMETER_M;
 use crate::plugins::terrain::body::{Body, BodyPreset};
 use crate::plugins::terrain::TerrainPlugin;
 use crate::state::GameState;
@@ -54,14 +53,15 @@ impl Plugin for GamePlugin {
 pub struct OrbitCamera;
 
 fn setup(mut commands: Commands) {
+    let body_preset = BodyPreset::MOON / 10.0;
     commands.spawn((
         OrbitCamera,
         PanOrbitCamera {
             focus: Vec3::ZERO,
-            radius: Some(MOON_DIAMETER_M),
-            zoom_lower_limit: (MOON_DIAMETER_M / 2.0) + 5.0,
+            radius: Some(body_preset.radius * 2.0),
+            zoom_lower_limit: body_preset.radius + 5.0,
             ..Default::default()
         },
     ));
-    commands.spawn(Body::from_preset(BodyPreset::MOON));
+    commands.spawn(Body::from_preset(body_preset));
 }

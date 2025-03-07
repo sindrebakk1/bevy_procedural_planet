@@ -3,8 +3,9 @@ use avian3d::prelude::RigidBody;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use procedural_planet::plugins::physics::PhysicsPlugin;
-use procedural_planet::plugins::player::controller::controls::ControllerCamera;
+use procedural_planet::plugins::player::tnua_controller::controls::ControllerCamera;
 use procedural_planet::plugins::player::{Player, PlayerPlugin};
+use procedural_planet::plugins::player::tnua_controller::gravity::ControllerGravity;
 
 fn main() {
     App::new()
@@ -34,7 +35,11 @@ fn setup(
         RigidBody::Static,
     ));
 
-    commands.spawn((Player, Transform::from_xyz(0.0, 2.0, 0.0)));
+    commands.spawn((
+        Player,
+        Transform::from_xyz(0.0, 2.0, 0.0),
+        ControllerGravity(Vec3::ZERO * -9.81),
+    ));
 
     commands.spawn((
         PointLight {
