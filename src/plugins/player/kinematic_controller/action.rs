@@ -1,9 +1,13 @@
 use bevy::prelude::*;
 use bevy::time::Stopwatch;
 
+use crate::plugins::player::kinematic_controller::basis::{
+    Basis, BasisContext, BoxableBasis, DynamicBasis,
+};
+use crate::plugins::player::kinematic_controller::components::{
+    Motor, ProximitySensor, RigidBodyTracker,
+};
 use std::{any::Any, time::Duration};
-use crate::plugins::player::kinematic_controller::basis::{Basis, BasisContext, BoxableBasis, DynamicBasis};
-use crate::plugins::player::kinematic_controller::components::{Motor, ProximitySensor, RigidBodyTracker};
 
 /// Various data passed to [`Action::apply`].
 pub struct ActionContext<'a> {
@@ -81,10 +85,7 @@ impl ActionLifecycleStatus {
     /// Similar to [`directive_simple`](Self::directive_simple), but if some other action gets fed
     /// and this action is still being fed, reschedule this action once the other action finishes,
     /// as long as more time than `after_seconds` has passed.
-    pub fn directive_simple_reschedule(
-        &self,
-        after_seconds: f32,
-    ) -> ActionLifecycleDirective {
+    pub fn directive_simple_reschedule(&self, after_seconds: f32) -> ActionLifecycleDirective {
         match self {
             ActionLifecycleStatus::Initiated => ActionLifecycleDirective::StillActive,
             ActionLifecycleStatus::CancelledFrom => ActionLifecycleDirective::StillActive,

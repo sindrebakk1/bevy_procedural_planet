@@ -14,7 +14,7 @@ pub fn rotation_arc_around_axis(
         rotation_plane_x.dot(desired_forward),
         rotation_plane_y.dot(desired_forward),
     )
-        .try_normalize()?;
+    .try_normalize()?;
     let rotation_to_set_forward =
         Quat::from_rotation_arc_2d(Vec2::X, desired_forward_in_plane_coords);
     Some(rotation_to_set_forward.xyz().z)

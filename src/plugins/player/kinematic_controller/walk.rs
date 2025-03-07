@@ -1,10 +1,10 @@
 use std::f32::consts::FRAC_PI_2;
 use std::time::Duration;
 
-use bevy::prelude::*;
 use super::basis::{Basis, BasisContext};
 use super::components::{Motor, VelChange};
 use super::helpers::rotation_arc_around_axis;
+use bevy::prelude::*;
 
 /// The most common [basis](Basis) - walk around as a floating capsule.
 ///
@@ -157,36 +157,24 @@ impl Basis for BuiltinWalk {
 
         if let Some(sensor_output) = &ctx.proximity_sensor.output {
             state.effective_velocity = ctx.tracker.velocity - sensor_output.entity_linvel;
-            let sideways_unnormalized = sensor_output
-                .normal
-                .cross(*ctx.up_direction)
-                ;
+            let sideways_unnormalized = sensor_output.normal.cross(*ctx.up_direction);
             if sideways_unnormalized == Vec3::ZERO {
                 climb_vectors = None;
             } else {
                 climb_vectors = Some(ClimbVectors {
                     direction: sideways_unnormalized
                         .cross(sensor_output.normal)
-                        .normalize_or_zero()
-                        ,
+                        .normalize_or_zero(),
                     sideways: sideways_unnormalized.normalize_or_zero(),
                 });
             }
 
             slipping_vector = {
-                let angle_with_floor = sensor_output
-                    .normal
-                    .angle_between(*ctx.up_direction)
-                    ;
+                let angle_with_floor = sensor_output.normal.angle_between(*ctx.up_direction);
                 if angle_with_floor <= self.max_slope {
                     None
                 } else {
-                    Some(
-                        sensor_output
-                            .normal
-                            .reject_from(*ctx.up_direction)
-                            ,
-                    )
+                    Some(sensor_output.normal.reject_from(*ctx.up_direction))
                 }
             };
 
@@ -227,9 +215,7 @@ impl Basis for BuiltinWalk {
         }
         state.effective_velocity += impulse_to_offset;
 
-        let velocity_on_plane = state
-            .effective_velocity
-            .reject_from(ctx.up_direction);
+        let velocity_on_plane = state.effective_velocity.reject_from(ctx.up_direction);
 
         let desired_boost = self.desired_velocity - velocity_on_plane;
 
@@ -248,15 +234,12 @@ impl Basis for BuiltinWalk {
 
         state.vertical_velocity = if let Some(climb_vectors) = &climb_vectors {
             state.effective_velocity.dot(climb_vectors.direction)
-                * climb_vectors
-                .direction
-                .dot(ctx.up_direction)
+                * climb_vectors.direction.dot(ctx.up_direction)
         } else {
             0.0
         };
 
-        let walk_vel_change = if self.desired_velocity == Vec3::ZERO && slipping_vector.is_none()
-        {
+        let walk_vel_change = if self.desired_velocity == Vec3::ZERO && slipping_vector.is_none() {
             // When stopping, prefer a boost to be able to reach a precise stop (see issue #39)
             let walk_boost = desired_boost.clamp_length_max(ctx.frame_duration * max_acceleration);
             let walk_boost = if let Some(climb_vectors) = &climb_vectors {
@@ -282,8 +265,7 @@ impl Basis for BuiltinWalk {
                     break 'slipping_boost Vec3::ZERO;
                 };
                 let vertical_velocity = if 0.0 <= state.vertical_velocity {
-                    ctx.tracker.gravity.dot(ctx.up_direction)
-                        * ctx.frame_duration
+                    ctx.tracker.gravity.dot(ctx.up_direction) * ctx.frame_duration
                 } else {
                     state.vertical_velocity
                 };
@@ -326,10 +308,8 @@ impl Basis for BuiltinWalk {
                             (should_disable_due_to_slipping, &ctx.proximity_sensor.output)
                         {
                             // not doing the jump calculation here
-                            let spring_offset =
-                                self.float_height - sensor_output.proximity;
-                            state.standing_offset =
-                                -spring_offset * ctx.up_direction;
+                            let spring_offset = self.float_height - sensor_output.proximity;
+                            state.standing_offset = -spring_offset * ctx.up_direction;
                             break 'upward_impulse self.spring_force(state, &ctx, spring_offset);
                         } else {
                             state.airborne_timer = Some(Timer::from_seconds(
@@ -387,12 +367,9 @@ impl Basis for BuiltinWalk {
 
         let desired_angvel = if let Some(desired_forward) = self.desired_forward {
             let current_forward = ctx.tracker.rotation.mul_vec3(Vec3::NEG_Z);
-            let rotation_along_up_axis = rotation_arc_around_axis(
-                ctx.up_direction,
-                current_forward,
-                desired_forward,
-            )
-                .unwrap_or(0.0);
+            let rotation_along_up_axis =
+                rotation_arc_around_axis(ctx.up_direction, current_forward, desired_forward)
+                    .unwrap_or(0.0);
             (rotation_along_up_axis / ctx.frame_duration)
                 .clamp(-self.turning_angvel, self.turning_angvel)
         } else {
@@ -409,9 +386,7 @@ impl Basis for BuiltinWalk {
         let existing_turn_torque = torque_to_fix_tilt.dot(ctx.up_direction);
         let torque_to_turn = torque_to_turn - existing_turn_torque;
 
-        motor.ang = VelChange::boost(
-            torque_to_fix_tilt + torque_to_turn * ctx.up_direction,
-        );
+        motor.ang = VelChange::boost(torque_to_fix_tilt + torque_to_turn * ctx.up_direction);
     }
 
     fn proximity_sensor_cast_range(&self, _state: &Self::State) -> f32 {
@@ -467,10 +442,8 @@ impl BuiltinWalk {
     ) -> VelChange {
         let spring_force: f32 = spring_offset * self.spring_strength;
 
-        let relative_velocity = state
-            .effective_velocity
-            .dot(*ctx.up_direction)
-            - state.vertical_velocity;
+        let relative_velocity =
+            state.effective_velocity.dot(*ctx.up_direction) - state.vertical_velocity;
 
         let gravity_compensation = -ctx.tracker.gravity;
 

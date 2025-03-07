@@ -1,6 +1,6 @@
-use std::ops::{Add, AddAssign};
-use bevy::prelude::*;
 use crate::constants::physics::EARTH_GRAVITATIONAL_ACCELERATION;
+use bevy::prelude::*;
+use std::ops::{Add, AddAssign};
 
 /// Allows disabling  for a specific entity.
 ///

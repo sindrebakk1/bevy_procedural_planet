@@ -2,22 +2,24 @@ pub mod config;
 pub mod controls;
 pub mod gravity;
 
-use avian3d::prelude::{Collider, LockedAxes, RigidBody};
+use avian3d::prelude::{Collider, Gravity, RigidBody};
 use avian3d::schedule::{PhysicsSchedule, PhysicsSet};
 use bevy::app::{App, Plugin, PostUpdate, Update};
 use bevy::ecs::component::ComponentId;
 use bevy::ecs::world::DeferredWorld;
 use bevy::math::Vec3;
-use bevy::prelude::{Component, Entity, IntoSystemConfigs, SystemSet};
+use bevy::prelude::{Component, Entity, IntoSystemConfigs};
 use bevy::transform::TransformSystem;
-use bevy_tnua::control_helpers::{TnuaCrouchEnforcer, TnuaCrouchEnforcerPlugin, TnuaSimpleAirActionsCounter, TnuaSimpleFallThroughPlatformsHelper};
+use bevy_tnua::control_helpers::{
+    TnuaCrouchEnforcer, TnuaCrouchEnforcerPlugin, TnuaSimpleAirActionsCounter,
+    TnuaSimpleFallThroughPlatformsHelper,
+};
 use bevy_tnua::controller::{TnuaController, TnuaControllerPlugin};
-use bevy_tnua::{TnuaGhostSensor, TnuaPipelineStages, TnuaUserControlsSystemSet};
+use bevy_tnua::{TnuaGhostSensor, TnuaUserControlsSystemSet};
 use bevy_tnua_avian3d::{TnuaAvian3dPlugin, TnuaAvian3dSensorShape};
 use controls::{
     apply_camera_controls, apply_character_controls, grab_ungrab_mouse, ForwardFromCamera,
 };
-use crate::plugins::player::tnua_controller::gravity::apply_gravity;
 
 // pub enum ControllerPipelineStages {
 //     /// Data is read from the physics backend.
@@ -34,9 +36,10 @@ pub struct CharacterControllerPlugin;
 
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {
-        app .add_plugins(TnuaAvian3dPlugin::new(PhysicsSchedule))
+        app.add_plugins(TnuaAvian3dPlugin::new(PhysicsSchedule))
             .add_plugins(TnuaControllerPlugin::new(PhysicsSchedule))
             .add_plugins(TnuaCrouchEnforcerPlugin::new(PhysicsSchedule))
+            .insert_resource(Gravity::ZERO)
             .add_systems(Update, grab_ungrab_mouse)
             .add_systems(
                 PostUpdate,
@@ -46,17 +49,14 @@ impl Plugin for CharacterControllerPlugin {
             )
             .add_systems(
                 PhysicsSchedule,
-                (
-                    apply_gravity.before(TnuaPipelineStages::Motors).after(TnuaPipelineStages::Logic),
-                    apply_character_controls.in_set(TnuaUserControlsSystemSet),
-                ),
+                (apply_character_controls.in_set(TnuaUserControlsSystemSet),),
             );
     }
 }
 
 #[derive(Component, Default, Debug)]
 #[require(
-    RigidBody(|| RigidBody::Kinematic),
+    RigidBody(|| RigidBody::Dynamic),
     TnuaController,
     ForwardFromCamera,
     TnuaGhostSensor,

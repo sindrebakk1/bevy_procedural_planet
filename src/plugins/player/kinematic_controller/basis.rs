@@ -1,6 +1,6 @@
-use std::any::Any;
-use bevy::prelude::*;
 use super::action::Action;
+use bevy::prelude::*;
+use std::any::Any;
 
 /// Various data passed to [`Basis::apply`].
 pub struct BasisContext<'a> {

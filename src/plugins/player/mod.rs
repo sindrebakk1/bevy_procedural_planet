@@ -1,7 +1,7 @@
-#[cfg(feature = "tnua_controller")]
-pub mod tnua_controller;
 #[cfg(not(feature = "tnua_controller"))]
 pub mod kinematic_controller;
+#[cfg(feature = "tnua_controller")]
+pub mod tnua_controller;
 
 use avian3d::collision::ColliderConstructor;
 use bevy::ecs::component::ComponentId;
@@ -53,5 +53,4 @@ impl Plugin for PlayerPlugin {
         #[cfg(not(feature = "tnua_controller"))]
         app.add_plugins(KinematicCharacterControllerPlugin);
     }
-
 }

@@ -5,7 +5,10 @@ use avian3d::{
 use bevy::ecs::schedule::{InternedScheduleLabel, ScheduleLabel};
 use bevy::prelude::*;
 
-use super::components::{Motor, ProximitySensor, ProximitySensorOutput, RigidBodyTracker, SubservientSensor, ControllerToggle};
+use super::components::{
+    ControllerToggle, Motor, ProximitySensor, ProximitySensorOutput, RigidBodyTracker,
+    SubservientSensor,
+};
 use super::{CharacterControllerSystemSet, ControllerPipelineStages};
 
 /// Add this plugin to use avian3d as a physics backend.
@@ -60,8 +63,7 @@ fn update_rigid_body_trackers_system(
         &mut RigidBodyTracker,
     )>,
 ) {
-    for (transform, linaer_velocity, angular_velocity, mut tracker) in query.iter_mut()
-    {
+    for (transform, linaer_velocity, angular_velocity, mut tracker) in query.iter_mut() {
         let (_, rotation, translation) = transform.to_scale_rotation_translation();
         *tracker = RigidBodyTracker {
             translation: translation.adjust_precision(),
@@ -93,14 +95,7 @@ fn update_proximity_sensors_system(
     )>,
 ) {
     query.par_iter_mut().for_each(
-        |(
-             owner_entity,
-             transform,
-             mut sensor,
-             shape,
-             subservient,
-             toggle,
-         )| {
+        |(owner_entity, transform, mut sensor, shape, subservient, toggle)| {
             match toggle.copied().unwrap_or_default() {
                 ControllerToggle::Disabled => return,
                 ControllerToggle::SenseOnly => {}
@@ -128,7 +123,7 @@ fn update_proximity_sensors_system(
             let collision_layers = collision_layers_entity.get(owner_entity).ok();
 
             let mut final_sensor_output = None;
-            
+
             let mut apply_cast = |cast_result: CastResult| {
                 let CastResult {
                     entity,
@@ -159,11 +154,8 @@ fn update_proximity_sensors_system(
                 // TODO: see if https://github.com/idanarye/bevy-tnua/issues/14 replicates in Avian,
                 // and if figure out how to port its fix to Avian.
 
-                let Ok((
-                           entity_kinematic_data,
-                           entity_collision_layers,
-                           entity_is_sensor,
-                       )) = other_object_query.get(entity)
+                let Ok((entity_kinematic_data, entity_collision_layers, entity_is_sensor)) =
+                    other_object_query.get(entity)
                 else {
                     return false;
                 };
@@ -176,15 +168,15 @@ fn update_proximity_sensors_system(
                     entity_angvel = entity_angular_velocity.0.adjust_precision();
                     entity_linvel = entity_linear_velocity.0.adjust_precision()
                         + if 0.0 < entity_angvel.length_squared() {
-                        let relative_point = intersection_point
-                            - entity_transform.translation().adjust_precision();
-                        // NOTE: no need to project relative_point on the
-                        // rotation plane, it will not affect the cross
-                        // product.
-                        entity_angvel.cross(relative_point)
-                    } else {
-                        Vec3::ZERO
-                    };
+                            let relative_point = intersection_point
+                                - entity_transform.translation().adjust_precision();
+                            // NOTE: no need to project relative_point on the
+                            // rotation plane, it will not affect the cross
+                            // product.
+                            entity_angvel.cross(relative_point)
+                        } else {
+                            Vec3::ZERO
+                        };
                 } else {
                     entity_angvel = Vec3::ZERO;
                     entity_linvel = Vec3::ZERO;

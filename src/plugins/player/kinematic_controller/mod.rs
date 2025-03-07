@@ -1,20 +1,22 @@
-mod components;
-mod backend;
-mod controller;
-mod walk;
 mod action;
+mod backend;
 mod basis;
+mod components;
+mod controller;
 mod helpers;
+mod walk;
 
 use bevy::ecs::schedule::{InternedScheduleLabel, ScheduleLabel};
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 
+use action::{
+    ActionContext, ActionInitiationDirective, ActionLifecycleDirective, ActionLifecycleStatus,
+};
+use basis::BasisContext;
+use components::{ControllerToggle, ProximitySensor};
 use components::{Motor, RigidBodyTracker};
 use controller::{ActionFlowStatus, Controller};
-use action::{ActionContext, ActionInitiationDirective, ActionLifecycleDirective, ActionLifecycleStatus};
-use basis::BasisContext;
-use components::{ProximitySensor, ControllerToggle};
 
 /// Umbrella system set for [`PipelineStages`].
 ///
@@ -73,7 +75,7 @@ impl Plugin for KinematicCharacterControllerPlugin {
         );
         app.add_systems(
             self.schedule,
-            apply_controller_system.in_set(ControllerPipelineStages::Logic)
+            apply_controller_system.in_set(ControllerPipelineStages::Logic),
         )
     }
 }
@@ -208,9 +210,7 @@ fn apply_controller_system(
                     }
                     ActionLifecycleDirective::Finished
                     | ActionLifecycleDirective::Reschedule { .. } => {
-                        if let ActionLifecycleDirective::Reschedule { after_seconds } =
-                            directive
-                        {
+                        if let ActionLifecycleDirective::Reschedule { after_seconds } = directive {
                             reschedule_action(&mut controller.actions_being_fed, after_seconds);
                         }
                         controller.current_action = if has_valid_contender {

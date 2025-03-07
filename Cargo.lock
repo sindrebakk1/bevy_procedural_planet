@@ -4193,6 +4193,7 @@ dependencies = [
 name = "procedural_planet"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "avian3d",
  "bevy",
  "bevy-inspector-egui",
@@ -4205,6 +4206,7 @@ dependencies = [
  "gigs",
  "image",
  "log",
+ "serde",
  "thiserror 2.0.12",
  "winit",
 ]

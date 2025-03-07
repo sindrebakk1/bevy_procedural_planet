@@ -1,8 +1,8 @@
+use crate::plugins::player::kinematic_controller::action::{Action, BoxableAction, DynamicAction};
+use crate::plugins::player::kinematic_controller::basis::{Basis, BoxableBasis, DynamicBasis};
 use bevy::prelude::{Component, Timer};
 use bevy::time::Stopwatch;
 use bevy::utils::{Entry, HashMap};
-use crate::plugins::player::kinematic_controller::action::{Action, BoxableAction, DynamicAction};
-use crate::plugins::player::kinematic_controller::basis::{Basis, BoxableBasis, DynamicBasis};
 
 pub struct FedEntry {
     fed_this_frame: bool,
@@ -132,10 +132,10 @@ impl Controller {
                     }
                 } else if self.contender_action.is_none()
                     && entry
-                    .get()
-                    .rescheduled_in
-                    .as_ref()
-                    .map_or(false, |timer| timer.finished())
+                        .get()
+                        .rescheduled_in
+                        .as_ref()
+                        .map_or(false, |timer| timer.finished())
                 {
                     // no action is running - but this action is rescheduled and there is no
                     // already-existing contender that would have taken priority
