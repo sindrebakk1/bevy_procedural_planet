@@ -39,7 +39,7 @@ impl std::ops::Div<Scalar> for BodyPreset {
 
     fn div(self, rhs: Scalar) -> Self::Output {
         let mut res = self;
-        res.mass /= rhs;
+        res.mass /= rhs.powi(3);
         res.radius /= rhs;
         res
     }

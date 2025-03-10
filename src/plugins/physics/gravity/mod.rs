@@ -149,6 +149,20 @@ impl GravityField {
             } => gravitational_parameter / distance_m.powi(2),
         }
     }
+
+    pub fn is_radial(&self) -> bool {
+        match self {
+            GravityField::Linear(_) => false,
+            GravityField::Radial { .. } => true,
+        }
+    }
+
+    pub fn is_linear(&self) -> bool {
+        match self {
+            GravityField::Linear(_) => true,
+            GravityField::Radial { .. } => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -158,7 +172,7 @@ pub enum TryFromGravityFieldError {
 
 #[derive(Component)]
 #[require(Transform)]
-pub struct LocalGravity(pub(super) Vector);
+pub struct LocalGravity(pub Vector);
 
 #[allow(unused)]
 impl LocalGravity {

@@ -116,9 +116,8 @@ pub enum CubeTreeNode {
 }
 
 impl CubeTreeNode {
-    const MIN_SIZE: Scalar = 12.0;
-    const THRESHOLD: Scalar = 4.0;
-    const COLLIDER_RADIUS: Scalar = 24.0;
+    const MIN_SIZE: Scalar = 24.0;
+    const THRESHOLD: Scalar = 1.5;
 
     pub fn new(half_size: Scalar, face: Axis) -> Self {
         let mut node = Self::Leaf {
@@ -149,13 +148,11 @@ impl CubeTreeNode {
             }
             CubeTreeNode::Leaf { bounds, .. } => {
                 let size = bounds.size().x;
-                let center = self.center().unwrap();
-                if center.distance(point) <= Self::COLLIDER_RADIUS {
+                if size <= Self::MIN_SIZE {
                     self.set_collider(true);
+                    return;
                 }
-                if size <= Self::MIN_SIZE
-                    || self.center().unwrap().distance(point) > size * Self::THRESHOLD
-                {
+                if self.center().unwrap().distance(point) > size * Self::THRESHOLD {
                     return;
                 }
                 self.subdivide();

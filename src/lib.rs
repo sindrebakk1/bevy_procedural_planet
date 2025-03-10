@@ -50,7 +50,7 @@ impl Plugin for GamePlugin {
 pub struct OrbitCamera;
 
 fn setup(mut commands: Commands) {
-    let body_preset = BodyPreset::MOON / 10.0;
+    let body_preset = BodyPreset::MOON / 100.0;
     commands.spawn((
         OrbitCamera,
         PanOrbitCamera {

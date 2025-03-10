@@ -1,12 +1,11 @@
-use avian3d::prelude::Gravity;
 use bevy::prelude::*;
 
 use procedural_planet::{
     materials::GlobalMaterialsPlugin,
     plugins::{
-        physics::PhysicsPlugin,
+        physics::{GlobalGravity, PhysicsPlugin},
         player::{Player, PlayerPlugin},
-        terrain::{Body, TerrainPlugin},
+        terrain::{Body, BodyPreset, TerrainPlugin},
     },
 };
 
@@ -22,7 +21,7 @@ fn main() {
             color: Color::WHITE,
             brightness: 1000.0,
         })
-        .insert_resource(Gravity::ZERO)
+        .insert_resource(GlobalGravity::ZERO)
         .add_systems(Startup, setup);
 
     #[cfg(debug_assertions)]
@@ -44,9 +43,13 @@ fn setup(mut commands: Commands) {
         Transform::default().looking_to(Vec3::new(-1.0, 0.0, -1.0), Dir3::Y),
     ));
 
-    let body = commands.spawn(Body::new(100.0, 1_000_000.0)).id();
+    let body_preset = BodyPreset::MOON;
+    let body = commands.spawn(Body::from_preset(body_preset)).id();
 
     commands
-        .spawn((Player, Transform::from_xyz(0.0, 55.0, 0.0)))
+        .spawn((
+            Player,
+            Transform::from_xyz(0.0, body_preset.radius + 10.0, 0.0),
+        ))
         .set_parent(body);
 }

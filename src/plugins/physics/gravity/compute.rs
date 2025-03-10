@@ -27,10 +27,9 @@ pub fn compute_local_gravities(
              global_transform,
              children,
          )| {
-            let gravitational_parameter = match *gravity_field {
-                GravityField::Radial { gravitational_parameter } => gravitational_parameter,
-                _ => return,
-            };
+            if !gravity_field.is_radial() {
+                return;
+            }
             for (child, actual_parent) in parent_query.iter_many(children) {
                 debug_assert_eq!(
                     actual_parent.get(), entity,
@@ -39,7 +38,7 @@ pub fn compute_local_gravities(
                 #[expect(unsafe_code, reason = "`propagate_recursive()` is unsafe due to its use of `Query::get_unchecked()`.")]
                 unsafe {
                     compute_local_gravities_recursive(
-                        gravitational_parameter,
+                        gravity_field,
                         global_transform,
                         &child_query,
                         &parent_query,
@@ -52,7 +51,7 @@ pub fn compute_local_gravities(
 }
 
 unsafe fn compute_local_gravities_recursive(
-    gravitational_parameter: Scalar,
+    parent_field: &GravityField,
     source: &GlobalTransform,
     child_query: &ComputeGravitiesChildQuery,
     parent_query: &ParentQuery,
@@ -69,9 +68,8 @@ unsafe fn compute_local_gravities_recursive(
     if local_gravity.is_some() {
         let vector_to_source = source.translation() - global_transform.translation();
         unsafe {
-            local_gravity.unwrap_unchecked().0 = vector_to_source.normalize()
-                * vector_to_source.length_squared()
-                * gravitational_parameter;
+            local_gravity.unwrap_unchecked().0 =
+                vector_to_source.normalize() * parent_field.gravitational_acceleration(vector_to_source.length());
         }
     }
     let Some(children) = children else {
@@ -85,7 +83,7 @@ unsafe fn compute_local_gravities_recursive(
 
         unsafe {
             compute_local_gravities_recursive(
-                gravitational_parameter,
+                parent_field,
                 source,
                 child_query,
                 parent_query,
