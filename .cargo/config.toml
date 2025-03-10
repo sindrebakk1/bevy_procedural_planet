@@ -1,0 +1,7 @@
+[build]
+# Global build settings (applies to all profiles)
+rustflags = ["-C", "target-cpu=native"]
+
+[profile.dev]
+# Enable the 'dev' feature automatically in debug builds
+rustflags = ["--cfg", "feature=\"dev\""]

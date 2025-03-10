@@ -1,6 +1,6 @@
-use bevy::math::{Dir3, Rect, Vec2, Vec3};
-use bevy::prelude::Component;
-use std::fmt::Formatter;
+use avian3d::math::{Scalar, Vector, Vector2};
+use bevy::math::{Dir3, Rect};
+use bevy::prelude::*;
 
 use super::helpers::cube_to_sphere;
 
@@ -52,7 +52,7 @@ impl From<&Axis> for Dir3 {
     }
 }
 
-impl From<Axis> for Vec3 {
+impl From<Axis> for Vector {
     fn from(value: Axis) -> Self {
         match value {
             Axis::X => Self::X,
@@ -68,12 +68,12 @@ impl From<Axis> for Vec3 {
 #[derive(Component, Clone, Debug)]
 pub struct CubeTree {
     pub faces: [(Axis, CubeTreeNode); 6],
-    half_size: f32,
+    half_size: Scalar,
 }
 
 #[allow(unused)]
 impl CubeTree {
-    pub fn new(half_size: f32) -> Self {
+    pub fn new(half_size: Scalar) -> Self {
         let faces = Axis::ALL.map(|axis| (axis, CubeTreeNode::new(half_size, axis)));
         Self { faces, half_size }
     }
@@ -92,7 +92,7 @@ impl CubeTree {
         self.faces[axis as usize] = (axis, node)
     }
 
-    pub fn insert(&mut self, relative_pos: Vec3) {
+    pub fn insert(&mut self, relative_pos: Vector) {
         for axis in Axis::ALL {
             let mut new_node = CubeTreeNode::new(self.half_size, axis);
             new_node.insert(relative_pos);
@@ -109,23 +109,23 @@ pub enum CubeTreeNode {
     },
     Leaf {
         collider: bool,
-        half_size: f32,
+        half_size: Scalar,
         face: Axis,
         bounds: Rect,
     },
 }
 
 impl CubeTreeNode {
-    const MIN_SIZE: f32 = 12.0;
-    const THRESHOLD: f32 = 4.0;
-    const COLLIDER_RADIUS: f32 = 24.0;
+    const MIN_SIZE: Scalar = 12.0;
+    const THRESHOLD: Scalar = 4.0;
+    const COLLIDER_RADIUS: Scalar = 24.0;
 
-    pub fn new(half_size: f32, face: Axis) -> Self {
+    pub fn new(half_size: Scalar, face: Axis) -> Self {
         let mut node = Self::Leaf {
             collider: false,
             half_size,
             face,
-            bounds: Rect::from_center_half_size(Vec2::ZERO, Vec2::splat(half_size)),
+            bounds: Rect::from_center_half_size(Vector2::ZERO, Vector2::splat(half_size)),
         };
         node.subdivide();
         node
@@ -138,7 +138,7 @@ impl CubeTreeNode {
         }
     }
 
-    pub fn insert(&mut self, point: Vec3) {
+    pub fn insert(&mut self, point: Vector) {
         match self {
             CubeTreeNode::Internal {
                 ref mut children, ..
@@ -179,7 +179,7 @@ impl CubeTreeNode {
         };
     }
 
-    pub fn center(&self) -> Option<Vec3> {
+    pub fn center(&self) -> Option<Vector> {
         match *self {
             CubeTreeNode::Leaf {
                 half_size,
@@ -189,12 +189,12 @@ impl CubeTreeNode {
             } => {
                 let [x, y] = bounds.center().to_array();
                 let point_on_cube = match face {
-                    Axis::X => Vec3::new(half_size, -y, x),
-                    Axis::Y => Vec3::new(x, half_size, -y),
-                    Axis::Z => Vec3::new(-y, x, half_size),
-                    Axis::NegX => Vec3::new(-half_size, -y, -x),
-                    Axis::NegY => Vec3::new(-x, -half_size, -y),
-                    Axis::NegZ => Vec3::new(-y, -x, -half_size),
+                    Axis::X => Vector::new(half_size, -y, x),
+                    Axis::Y => Vector::new(x, half_size, -y),
+                    Axis::Z => Vector::new(-y, x, half_size),
+                    Axis::NegX => Vector::new(-half_size, -y, -x),
+                    Axis::NegY => Vector::new(-x, -half_size, -y),
+                    Axis::NegZ => Vector::new(-y, -x, -half_size),
                 };
                 Some(cube_to_sphere(point_on_cube, half_size))
             }
@@ -203,7 +203,7 @@ impl CubeTreeNode {
     }
 
     #[inline]
-    pub fn normal(&self) -> Option<Vec3> {
+    pub fn normal(&self) -> Option<Vector> {
         self.center().map(|center| center.normalize())
     }
 
@@ -263,13 +263,13 @@ impl CubeTreeNode {
                     Rect::from_corners(bounds.min, center),
                     // Bottom right
                     Rect::from_corners(
-                        Vec2::new(center.x, bounds.min.y),
-                        Vec2::new(bounds.max.x, center.y),
+                        Vector2::new(center.x, bounds.min.y),
+                        Vector2::new(bounds.max.x, center.y),
                     ),
                     // Top left
                     Rect::from_corners(
-                        Vec2::new(bounds.min.x, center.y),
-                        Vec2::new(center.x, bounds.max.y),
+                        Vector2::new(bounds.min.x, center.y),
+                        Vector2::new(center.x, bounds.max.y),
                     ),
                     // Top right
                     Rect::from_corners(center, bounds.max),
@@ -338,7 +338,7 @@ impl PartialEq for CubeTreeNode {
 impl Eq for CubeTreeNode {}
 
 impl std::fmt::Debug for CubeTreeNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CubeTreeNode::Internal { bounds, .. } => f.write_fmt(format_args!(
                 "QuadTreeNode::Internal {{ (({},{}), ({},{}))}}\n",
@@ -359,7 +359,7 @@ mod tests {
     fn test_insert() {
         let radius = 100.0;
         let mut quad_cube = CubeTree::new(radius);
-        quad_cube.insert(Vec3::Z * radius * 2.0);
+        quad_cube.insert(Vector::Z * radius * 2.0);
 
         let mut children = Vec::new();
         let z_face = quad_cube.get(Axis::Z);
@@ -370,25 +370,25 @@ mod tests {
                 collider: false,
                 half_size: radius,
                 face: Axis::Z,
-                bounds: Rect::from_corners(Vec2::new(0.0, 0.0), Vec2::new(-100.0, -100.0)),
+                bounds: Rect::from_corners(Vector2::new(0.0, 0.0), Vector2::new(-100.0, -100.0)),
             },
             CubeTreeNode::Leaf {
                 collider: false,
                 half_size: radius,
                 face: Axis::Z,
-                bounds: Rect::from_corners(Vec2::new(100.0, 0.0), Vec2::new(0.0, -100.0)),
+                bounds: Rect::from_corners(Vector2::new(100.0, 0.0), Vector2::new(0.0, -100.0)),
             },
             CubeTreeNode::Leaf {
                 collider: false,
                 half_size: radius,
                 face: Axis::Z,
-                bounds: Rect::from_corners(Vec2::new(0.0, 100.0), Vec2::new(-100.0, 0.0)),
+                bounds: Rect::from_corners(Vector2::new(0.0, 100.0), Vector2::new(-100.0, 0.0)),
             },
             CubeTreeNode::Leaf {
                 collider: false,
                 half_size: radius,
                 face: Axis::Z,
-                bounds: Rect::from_corners(Vec2::new(100.0, 100.0), Vec2::new(0.0, 0.0)),
+                bounds: Rect::from_corners(Vector2::new(100.0, 100.0), Vector2::new(0.0, 0.0)),
             },
         ];
 

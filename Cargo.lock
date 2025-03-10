@@ -4202,6 +4202,7 @@ dependencies = [
  "bevy_asset_loader",
  "bevy_kira_audio",
  "bevy_panorbit_camera",
+ "disqualified",
  "embed-resource",
  "gigs",
  "image",

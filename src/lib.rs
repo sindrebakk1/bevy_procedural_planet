@@ -1,26 +1,22 @@
 pub mod constants;
 pub mod keybinds;
 pub mod materials;
+pub mod math;
 pub mod plugins;
 pub mod state;
 
 #[cfg(debug_assertions)]
 pub mod debug;
 
-use avian3d::PhysicsPlugins;
-use bevy::app::{App, Plugin, Startup};
-use bevy::color::Color;
-use bevy::math::Vec3;
-use bevy::pbr::AmbientLight;
-use bevy::prelude::{AppExtStates, ClearColor, Commands, Component};
+use bevy::prelude::*;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 
-use crate::materials::GlobalMaterialsPlugin;
-use crate::plugins::asset_loader::AssetLoaderPlugin;
-// use crate::plugins::player::Player;
-use crate::plugins::terrain::body::{Body, BodyPreset};
-use crate::plugins::terrain::TerrainPlugin;
-use crate::state::GameState;
+use materials::GlobalMaterialsPlugin;
+use plugins::{
+    terrain::body::{Body, BodyPreset},
+    AssetLoaderPlugin, PhysicsPlugin, PlayerPlugin, TerrainPlugin,
+};
+use state::GameState;
 
 pub struct GamePlugin;
 
@@ -33,9 +29,10 @@ impl Plugin for GamePlugin {
                 brightness: 1000.0,
             })
             .add_plugins((
-                PhysicsPlugins::default(),
+                PhysicsPlugin::default(),
                 AssetLoaderPlugin,
                 PanOrbitCameraPlugin,
+                PlayerPlugin,
                 GlobalMaterialsPlugin,
                 TerrainPlugin::<OrbitCamera>::default(),
             ))

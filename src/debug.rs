@@ -1,11 +1,11 @@
-use crate::keybinds::TOGGLE_WIREFRAME;
-use bevy::app::{App, Plugin, Update};
-use bevy::color::{Color, Luminance};
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::input::ButtonInput;
-use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
-use bevy::prelude::{resource_changed, IntoSystemConfigs, KeyCode, Res, ResMut};
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    pbr::wireframe::{WireframeConfig, WireframePlugin},
+    prelude::*,
+};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+
+use crate::keybinds::TOGGLE_WIREFRAME;
 
 pub struct DebugPlugin;
 

@@ -1,7 +1,7 @@
-use bevy::app::{App, Plugin};
-use bevy::pbr::MaterialPlugin;
-use bevy::prelude::{Asset, Material, TypePath};
-use bevy::render::render_resource::{AsBindGroup, ShaderRef};
+use bevy::{
+    prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
+};
 
 pub struct DebugMaterialsPlugin;
 

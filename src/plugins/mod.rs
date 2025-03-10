@@ -1,5 +1,9 @@
 pub mod asset_loader;
-pub mod orbit_camera;
 pub mod physics;
 pub mod player;
 pub mod terrain;
+
+pub use {
+    asset_loader::AssetLoaderPlugin, physics::PhysicsPlugin, player::PlayerPlugin,
+    terrain::TerrainPlugin,
+};

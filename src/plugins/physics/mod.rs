@@ -1,17 +1,19 @@
-pub mod integrator;
-pub mod helpers;
+use avian3d::{math::Scalar, prelude::*};
+use bevy::{
+    ecs::{intern::Interned, schedule::ScheduleLabel},
+    prelude::*,
+};
+
+pub mod character_controller;
 pub mod gravity;
+mod integrator;
 
-use avian3d::math::{Scalar, Vector};
-use avian3d::prelude::mass_properties::components::GlobalAngularInertia;
-use avian3d::prelude::*;
-use bevy::ecs::intern::Interned;
-use bevy::ecs::schedule::ScheduleLabel;
-use bevy::prelude::*;
+pub use character_controller::CharacterController;
+pub use gravity::{GlobalGravity, GravityField, LocalGravity};
 
+use character_controller::CharacterControllerPlugin;
+use gravity::GravityPlugin;
 use integrator::CustomIntegratorPlugin;
-
-pub use gravity::LocalGravity;
 
 pub struct PhysicsPlugin {
     schedule: Interned<dyn ScheduleLabel>,
@@ -45,8 +47,10 @@ impl Plugin for PhysicsPlugin {
                 .with_length_unit(self.length_unit)
                 .build()
                 .disable::<IntegratorPlugin>()
-                .add(CustomIntegratorPlugin::default()),
+                .add_after::<PhysicsSchedulePlugin>(CustomIntegratorPlugin::default()),
         )
+        .add_plugins(GravityPlugin)
+        .add_plugins(CharacterControllerPlugin)
         .insert_resource(Time::from_hz(144.0));
     }
 }

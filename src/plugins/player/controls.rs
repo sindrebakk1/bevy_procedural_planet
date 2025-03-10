@@ -1,30 +1,32 @@
-use avian3d::math::FRAC_PI_2;
-use bevy::input::mouse::MouseMotion;
-use bevy::input::ButtonInput;
-use bevy::math::{Dir3, Quat, Vec2, Vec3};
-use bevy::prelude::{
-    Component, EventReader, GlobalTransform, KeyCode, MouseButton, Query, Res, Transform, Window,
-    With,
+use avian3d::math::{Quaternion, Scalar, Vector, Vector2, FRAC_PI_2};
+use bevy::{
+    input::mouse::MouseMotion,
+    prelude::*,
+    window::{CursorGrabMode, PrimaryWindow},
 };
-use bevy::window::{CursorGrabMode, PrimaryWindow};
 use bevy_inspector_egui::bevy_egui::EguiContexts;
-use bevy_tnua::builtins::{
-    TnuaBuiltinCrouch, TnuaBuiltinCrouchState, TnuaBuiltinDash, TnuaBuiltinJump, TnuaBuiltinWalk,
+use bevy_tnua::{
+    builtins::{
+        TnuaBuiltinCrouch, TnuaBuiltinCrouchState, TnuaBuiltinDash, TnuaBuiltinJump,
+        TnuaBuiltinWalk,
+    },
+    control_helpers::{
+        TnuaCrouchEnforcer, TnuaSimpleAirActionsCounter, TnuaSimpleFallThroughPlatformsHelper,
+    },
+    controller::TnuaController,
+    TnuaAction, TnuaGhostSensor, TnuaProximitySensor,
 };
-use bevy_tnua::control_helpers::{
-    TnuaCrouchEnforcer, TnuaSimpleAirActionsCounter, TnuaSimpleFallThroughPlatformsHelper,
-};
-use bevy_tnua::controller::TnuaController;
-use bevy_tnua::{TnuaAction, TnuaGhostSensor, TnuaProximitySensor};
 
-use super::config::{
-    CROUCH_FLOAT_OFFSET, DASH_DISTANCE, FLOAT_HEIGHT, JUMP_HEIGHT, MAX_SLOPE,
-    ONE_WAY_PLATFORMS_MIN_PROXIMITY, SPEED, TURNING_ANGULAR_VELOCITY,
+use crate::plugins::physics::character_controller::{
+    config::{
+        CROUCH_FLOAT_OFFSET, DASH_DISTANCE, FLOAT_HEIGHT, JUMP_HEIGHT, MAX_SLOPE,
+        ONE_WAY_PLATFORMS_MIN_PROXIMITY, SPEED, TURNING_ANGULAR_VELOCITY,
+    },
+    CharacterController,
 };
-use super::CharacterController;
 
 #[allow(clippy::type_complexity)]
-pub fn apply_character_controls(
+pub fn apply_player_controls(
     mut egui_context: EguiContexts,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut query: Query<(
@@ -54,26 +56,26 @@ pub fn apply_character_controls(
         forward_from_camera,
     ) in query.iter_mut()
     {
-        let mut direction = Vec3::ZERO;
+        let mut direction = Vector::ZERO;
 
         if keyboard.any_pressed([KeyCode::ArrowUp, KeyCode::KeyW]) {
-            direction -= Vec3::Z;
+            direction -= Vector::Z;
         }
         if keyboard.any_pressed([KeyCode::ArrowDown, KeyCode::KeyS]) {
-            direction += Vec3::Z;
+            direction += Vector::Z;
         }
         if keyboard.any_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]) {
-            direction -= Vec3::X;
+            direction -= Vector::X;
         }
         if keyboard.any_pressed([KeyCode::ArrowRight, KeyCode::KeyD]) {
-            direction += Vec3::X;
+            direction += Vector::X;
         }
 
         direction = direction.clamp_length_max(1.0);
 
         if let Some(forward_from_camera) = forward_from_camera {
             direction = Transform::default()
-                .looking_to(forward_from_camera.forward, Vec3::Y)
+                .looking_to(forward_from_camera.forward, Vector::Y)
                 .transform_point(direction);
         }
 
@@ -113,7 +115,7 @@ pub fn apply_character_controls(
 
         controller.basis(TnuaBuiltinWalk {
             desired_velocity: if turn_in_place {
-                Vec3::ZERO
+                Vector::ZERO
             } else {
                 direction * speed_factor * SPEED
             },
@@ -165,7 +167,7 @@ pub fn apply_camera_controls(
         (&GlobalTransform, &mut ForwardFromCamera),
         With<CharacterController>,
     >,
-    mut camera_query: Query<&mut Transform, With<ControllerCamera>>,
+    mut camera_query: Query<&mut Transform, With<PlayerCamera>>,
 ) {
     let mouse_controls_camera = primary_window_query
         .get_single()
@@ -174,14 +176,14 @@ pub fn apply_camera_controls(
         mouse_motion.read().map(|event| event.delta).sum()
     } else {
         mouse_motion.clear();
-        Vec2::ZERO
+        Vector2::ZERO
     };
     let Ok((player_transform, mut forward_from_camera)) = player_character_query.get_single_mut()
     else {
         return;
     };
 
-    let yaw = Quat::from_rotation_y(-0.01 * total_delta.x);
+    let yaw = Quaternion::from_rotation_y(-0.01 * total_delta.x);
     forward_from_camera.forward = yaw.mul_vec3(forward_from_camera.forward);
 
     let pitch = 0.005 * total_delta.y;
@@ -190,12 +192,12 @@ pub fn apply_camera_controls(
 
     for mut camera in camera_query.iter_mut() {
         camera.translation =
-            player_transform.translation() + -10.0 * forward_from_camera.forward + 1.0 * Vec3::Y;
-        camera.look_to(forward_from_camera.forward, Vec3::Y);
+            player_transform.translation() + -10.0 * forward_from_camera.forward + 1.0 * Vector::Y;
+        camera.look_to(forward_from_camera.forward, Vector::Y);
         let pitch_axis = camera.left();
         camera.rotate_around(
             player_transform.translation(),
-            Quat::from_axis_angle(*pitch_axis, forward_from_camera.pitch_angle),
+            Quaternion::from_axis_angle(*pitch_axis, forward_from_camera.pitch_angle),
         );
     }
 }
@@ -225,19 +227,19 @@ pub fn grab_ungrab_mouse(
     }
 }
 
-#[derive(Component)]
-pub struct ControllerCamera;
+#[derive(Component, Default)]
+pub struct PlayerCamera;
 
 #[derive(Component)]
 pub struct ForwardFromCamera {
-    pub forward: Vec3,
-    pub pitch_angle: f32,
+    pub forward: Vector,
+    pub pitch_angle: Scalar,
 }
 
 impl Default for ForwardFromCamera {
     fn default() -> Self {
         Self {
-            forward: Vec3::NEG_Z,
+            forward: Vector::NEG_Z,
             pitch_angle: 0.0,
         }
     }

@@ -1,11 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use bevy::app::PluginGroup;
-use bevy::window::{Window, WindowPlugin};
 use bevy::{
-    app::{App, AppExit},
+    app::{App, AppExit, PluginGroup},
+    window::{Window, WindowPlugin},
     DefaultPlugins,
 };
+
 use procedural_planet::GamePlugin;
 
 fn main() -> AppExit {

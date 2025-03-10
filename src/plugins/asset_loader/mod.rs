@@ -1,7 +1,7 @@
-use crate::state::GameState;
 use bevy::app::{App, Plugin};
-use bevy_asset_loader::loading_state::LoadingStateAppExt;
-use bevy_asset_loader::prelude::LoadingState;
+use bevy_asset_loader::prelude::{LoadingState, LoadingStateAppExt};
+
+use crate::state::GameState;
 
 pub struct AssetLoaderPlugin;
 

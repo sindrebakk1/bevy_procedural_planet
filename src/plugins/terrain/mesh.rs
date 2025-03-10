@@ -1,9 +1,14 @@
-use super::helpers::{spherical_uv, unit_cube_to_sphere};
-use crate::plugins::terrain::cube_tree::Axis;
-use bevy::asset::RenderAssetUsages;
-use bevy::math::{Dir3, Rect, Vec2, Vec3, Vec3Swizzles};
-use bevy::prelude::Mesh;
-use bevy::render::mesh::{Indices, PrimitiveTopology};
+use bevy::{
+    asset::RenderAssetUsages,
+    math::{Dir3, Rect, Vec2, Vec3, Vec3Swizzles},
+    prelude::*,
+    render::mesh::{Indices, PrimitiveTopology},
+};
+
+use super::{
+    cube_tree::Axis,
+    helpers::{spherical_uv, unit_cube_to_sphere},
+};
 
 #[allow(unused)]
 trait RectExtension {

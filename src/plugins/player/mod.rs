@@ -1,28 +1,23 @@
-#[cfg(not(feature = "tnua_controller"))]
-pub mod kinematic_controller;
-#[cfg(feature = "tnua_controller")]
-pub mod tnua_controller;
+use avian3d::prelude::*;
+use bevy::{
+    ecs::{component::ComponentId, world::DeferredWorld},
+    prelude::*,
+};
+use bevy_tnua::TnuaUserControlsSystemSet;
 
-use avian3d::collision::ColliderConstructor;
-use bevy::ecs::component::ComponentId;
-use bevy::ecs::world::DeferredWorld;
-use bevy::prelude::*;
+pub mod controls;
 
-#[cfg(feature = "tnua_controller")]
-use tnua_controller::{CharacterController, CharacterControllerPlugin};
+use crate::plugins::physics::CharacterController;
 
-#[cfg(not(feature = "tnua_controller"))]
-use kinematic_controller::{Controller, KinematicCharacterControllerPlugin};
+pub use controls::PlayerCamera;
 
-#[cfg(feature = "tnua_controller")]
+use crate::plugins::terrain::GenerateMeshes;
+use controls::{
+    apply_camera_controls, apply_player_controls, grab_ungrab_mouse, ForwardFromCamera,
+};
+
 #[derive(Component, Default)]
-#[require(Transform, CharacterController, Name(|| Name::new("Player")))]
-#[component(on_add = on_add_player)]
-pub struct Player;
-
-#[cfg(not(feature = "tnua_controller"))]
-#[derive(Component, Default)]
-#[require(Transform, CharacterController, Name(|| Name::new("Player")))]
+#[require(Transform, CharacterController, ForwardFromCamera, Name(|| Name::new("Player")))]
 #[component(on_add = on_add_player)]
 pub struct Player;
 
@@ -36,10 +31,27 @@ fn on_add_player(mut world: DeferredWorld, entity: Entity, _id: ComponentId) {
         .unwrap()
         .add(Color::srgb(0.8, 0.7, 0.6));
 
-    world.commands().entity(entity).insert((
-        Mesh3d(mesh_handle),
-        MeshMaterial3d(material_handle),
-        ColliderConstructor::TrimeshFromMesh,
+    let spawn_position = world
+        .entity(entity)
+        .get::<Transform>()
+        .expect("expected entity to have Transform component")
+        .translation;
+
+    world
+        .commands()
+        .entity(entity)
+        .insert((
+            Mesh3d(mesh_handle),
+            MeshMaterial3d(material_handle),
+            ColliderConstructor::TrimeshFromMesh,
+        ))
+        .trigger(GenerateMeshes(spawn_position));
+
+    world.commands().spawn((
+        PlayerCamera,
+        Camera3d::default(),
+        Transform::from_translation(spawn_position - (Vec3::NEG_Z * -10.0))
+            .looking_at(Vec3::NEG_Z, Vec3::Y),
     ));
 }
 
@@ -47,10 +59,16 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(feature = "tnua_controller")]
-        app.add_plugins(CharacterControllerPlugin);
-
-        #[cfg(not(feature = "tnua_controller"))]
-        app.add_plugins(KinematicCharacterControllerPlugin);
+        app.add_systems(Update, grab_ungrab_mouse)
+            .add_systems(
+                PostUpdate,
+                apply_camera_controls
+                    .after(PhysicsSet::Sync)
+                    .before(TransformSystem::TransformPropagate),
+            )
+            .add_systems(
+                PhysicsSchedule,
+                (apply_player_controls.in_set(TnuaUserControlsSystemSet),),
+            );
     }
 }

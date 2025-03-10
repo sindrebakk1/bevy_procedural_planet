@@ -1,11 +1,10 @@
-use crate::keybinds::{TOGGLE_DEBUG_NORMALS, TOGGLE_DEBUG_UVS};
-use crate::plugins::terrain::body::Body;
-use crate::plugins::terrain::material::{TerrainMaterial, TerrainMaterials};
-use bevy::app::{App, Plugin, Update};
-use bevy::prelude::{
-    resource_changed, ButtonInput, Commands, Entity, Event, IntoSystemConfigs, KeyCode, Local,
-    Query, Res, With,
+use bevy::prelude::*;
+
+use super::{
+    material::{TerrainMaterial, TerrainMaterials},
+    Body,
 };
+use crate::keybinds::{TOGGLE_DEBUG_NORMALS, TOGGLE_DEBUG_UVS};
 
 #[derive(Event, Copy, Clone, Default)]
 pub struct UpdateTerrainMaterial;

@@ -1,9 +1,0 @@
-pub const SPEED: f32 = 20.0;
-pub const FLOAT_HEIGHT: f32 = 2.0;
-pub const MAX_SLOPE: f32 = std::f32::consts::FRAC_PI_4;
-pub const TURNING_ANGULAR_VELOCITY: f32 = f32::INFINITY;
-pub const ACTIONS_IN_AIR: usize = 1;
-pub const JUMP_HEIGHT: f32 = 4.0;
-pub const CROUCH_FLOAT_OFFSET: f32 = -0.9;
-pub const DASH_DISTANCE: f32 = 10.0;
-pub const ONE_WAY_PLATFORMS_MIN_PROXIMITY: f32 = 1.0;

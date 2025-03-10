@@ -26,8 +26,9 @@
 //! approach is typically preferred.
 
 use super::*;
-use avian3d::dynamics::integrator::semi_implicit_euler::{
-    angular_acceleration, solve_gyroscopic_torque,
+use avian3d::{
+    dynamics::integrator::semi_implicit_euler::{angular_acceleration, solve_gyroscopic_torque},
+    math::Scalar,
 };
 
 type AngularValue = Vector;

@@ -1,14 +1,12 @@
-use bevy::asset::{Assets, Handle};
-use bevy::color::Color;
-use bevy::ecs::component::ComponentId;
-use bevy::ecs::world::DeferredWorld;
-use bevy::hierarchy::Children;
-use bevy::pbr::{MeshMaterial3d, StandardMaterial};
-use bevy::prelude::{Component, Entity, FromWorld, Resource, World};
+use bevy::{
+    ecs::{component::ComponentId, world::DeferredWorld},
+    prelude::*,
+};
+
+use super::body::Chunk;
 
 #[cfg(debug_assertions)]
 use crate::materials::debug::{DebugNormalsMaterial, DebugUVsMaterial};
-use crate::plugins::terrain::body::Chunk;
 
 #[derive(Resource, Clone, Debug)]
 pub struct TerrainMaterials {

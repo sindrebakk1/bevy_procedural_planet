@@ -1,3 +1,12 @@
+use avian3d::{math::Vector, prelude::Collider};
+use bevy::{
+    ecs::world::CommandQueue,
+    math::Vec3,
+    prelude::*,
+    tasks::{block_on, poll_once, AsyncComputeTaskPool, Task},
+    utils::HashSet,
+};
+
 pub mod body;
 pub mod cube_tree;
 pub mod helpers;
@@ -7,26 +16,23 @@ pub mod mesh;
 #[cfg(debug_assertions)]
 mod debug;
 
-use avian3d::prelude::Collider;
-use bevy::app::{App, Plugin, Update};
-use bevy::asset::Assets;
-use bevy::ecs::world::CommandQueue;
-use bevy::hierarchy::BuildChildren;
-use bevy::math::Vec3;
-use bevy::prelude::{
-    Commands, Component, Entity, Local, Mesh, Mesh3d, Query, Res, Resource, Transform, Trigger,
-    With, World,
-};
-use bevy::tasks::{block_on, poll_once, AsyncComputeTaskPool};
-use bevy::utils::HashSet;
-use std::marker::PhantomData;
+pub use body::{Body, BodyPreset, Radius};
 
-use body::{Body, Bounds, Chunk, ChunkCache, DespawnChunk, GenerateChunk, GenerateMeshes, Radius};
+use body::{Bounds, Chunk, ChunkCache};
 use cube_tree::{CubeTree, CubeTreeNode};
 use material::TerrainMaterials;
 use mesh::ChunkMeshBuilder;
 
 const CHUNK_CULLING_ANGLE: f32 = 90.0;
+
+#[derive(Event, Copy, Clone, Default)]
+pub struct GenerateMeshes(pub Vector);
+
+#[derive(Component)]
+pub struct GenerateChunk(pub Task<CommandQueue>);
+
+#[derive(Component)]
+pub struct DespawnChunk;
 
 #[derive(Copy, Clone, Resource)]
 pub struct TerrainPluginConfig {
@@ -36,7 +42,7 @@ pub struct TerrainPluginConfig {
 impl Default for TerrainPluginConfig {
     fn default() -> Self {
         Self {
-            position_threshold: 10.0,
+            position_threshold: 6.0,
         }
     }
 }
@@ -44,7 +50,7 @@ impl Default for TerrainPluginConfig {
 #[derive(Default)]
 pub struct TerrainPlugin<T: Component> {
     cfg: TerrainPluginConfig,
-    _marker: PhantomData<T>,
+    _marker: std::marker::PhantomData<T>,
 }
 
 impl<T: Component> Plugin for TerrainPlugin<T> {
@@ -135,6 +141,8 @@ fn generate_meshes(
                     let mut command_queue = CommandQueue::default();
 
                     let mesh = mesh_builder.build(bounds, axis);
+                    // let collider = Collider::trimesh_from_mesh(&mesh)
+                    //     .expect("expected collider construction to succeed");
                     let collider = has_collider.then(|| {
                         Collider::trimesh_from_mesh(&mesh)
                             .expect("expected collider construction to succeed")
@@ -148,7 +156,9 @@ fn generate_meshes(
 
                         if let Ok(mut entity_mut) = world.get_entity_mut(chunk_entity) {
                             entity_mut.insert(Mesh3d(mesh_handle));
+                            // entity_mut.insert((Mesh3d(mesh_handle), collider));
                             if let Some(collider) = collider {
+                                info!("inserting collider");
                                 entity_mut.insert(collider);
                             }
                         }
