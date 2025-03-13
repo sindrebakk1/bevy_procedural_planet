@@ -4,12 +4,17 @@ use bevy::{
     prelude::*,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use big_space::{debug::FloatingOriginDebugPlugin, precision::GridPrecision};
+use std::marker::PhantomData;
 
 use crate::keybinds::TOGGLE_WIREFRAME;
 
-pub struct DebugPlugin;
+#[derive(Default)]
+pub struct DebugPlugin<P: GridPrecision> {
+    _marker: PhantomData<P>,
+}
 
-impl Plugin for DebugPlugin {
+impl<P: GridPrecision> Plugin for DebugPlugin<P> {
     fn build(&self, app: &mut App) {
         app.insert_resource(WireframeConfig {
             global: true,
@@ -20,6 +25,7 @@ impl Plugin for DebugPlugin {
             LogDiagnosticsPlugin::default(),
             WireframePlugin,
             WorldInspectorPlugin::default(),
+            FloatingOriginDebugPlugin::<P>::default(),
         ))
         .add_systems(
             Update,

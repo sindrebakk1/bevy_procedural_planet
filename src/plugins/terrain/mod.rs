@@ -1,11 +1,13 @@
+use avian3d::math::{AdjustPrecision, Scalar};
 use avian3d::{math::Vector, prelude::Collider};
 use bevy::{
     ecs::world::CommandQueue,
-    math::Vec3,
     prelude::*,
     tasks::{block_on, poll_once, AsyncComputeTaskPool, Task},
     utils::HashSet,
 };
+use big_space::grid::Grid;
+use big_space::prelude::GridCell;
 
 pub mod body;
 pub mod cube_tree;
@@ -18,12 +20,13 @@ mod debug;
 
 pub use body::{Body, BodyPreset, Radius};
 
+use crate::Precision;
 use body::{Bounds, Chunk, ChunkCache};
 use cube_tree::{CubeTree, CubeTreeNode};
 use material::TerrainMaterials;
 use mesh::ChunkMeshBuilder;
 
-const CHUNK_CULLING_ANGLE: f32 = 90.0;
+const CHUNK_CULLING_ANGLE: Scalar = 90.0;
 
 #[derive(Event, Copy, Clone, Default)]
 pub struct GenerateMeshes(pub Vector);
@@ -36,7 +39,7 @@ pub struct DespawnChunk;
 
 #[derive(Copy, Clone, Resource)]
 pub struct TerrainPluginConfig {
-    position_threshold: f32,
+    position_threshold: Scalar,
 }
 
 impl Default for TerrainPluginConfig {
@@ -48,16 +51,26 @@ impl Default for TerrainPluginConfig {
 }
 
 #[derive(Default)]
-pub struct TerrainPlugin<T: Component> {
+pub struct TerrainPlugin<T: Component, const SUBDIVISIONS: usize>
+where
+    [(); SUBDIVISIONS]:,
+    [(); (SUBDIVISIONS + 2) * 2]:,
+    [(); (((SUBDIVISIONS + 2) * 2) - 1).pow(2) * 6]:,
+{
     cfg: TerrainPluginConfig,
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T: Component> Plugin for TerrainPlugin<T> {
+impl<T: Component, const SUBDIVISIONS: usize> Plugin for TerrainPlugin<T, SUBDIVISIONS>
+where
+    [(); SUBDIVISIONS]:,
+    [(); (SUBDIVISIONS + 2) * 2]:,
+    [(); (((SUBDIVISIONS + 2) * 2) - 1).pow(2) * 6]:,
+{
     fn build(&self, app: &mut App) {
         app.insert_resource(self.cfg)
             .init_resource::<TerrainMaterials>()
-            .add_observer(generate_meshes)
+            .add_observer(generate_meshes::<SUBDIVISIONS>)
             .add_systems(
                 Update,
                 (
@@ -77,38 +90,51 @@ impl<T: Component> Plugin for TerrainPlugin<T> {
 
 fn track_target_position<T: Component>(
     mut commands: Commands,
+    grid_query: Query<&Grid<Precision>>,
     config: Res<TerrainPluginConfig>,
-    transform_query: Query<&Transform, With<T>>,
-    mut planet_query: Query<(Entity, &Transform, &mut CubeTree), With<Body>>,
-    mut prev_position: Local<Vec3>,
+    target_query: Query<(&GridCell<Precision>, &Transform, &Parent), With<T>>,
+    mut planet_query: Query<(Entity, &GridCell<Precision>, &Transform, &mut CubeTree), With<Body>>,
+    mut prev_position: Local<Vector>,
 ) {
-    let target_translation = transform_query.single().translation;
-    if target_translation.distance(*prev_position) < config.position_threshold {
+    let Ok((cell, pos, parent)) = target_query.get_single() else {
+        return;
+    };
+    let Ok(grid) = grid_query.get(parent.get()) else {
+        return;
+    };
+    let target_position = grid.grid_position_double(cell, pos).adjust_precision();
+    if target_position.distance(*prev_position) < config.position_threshold {
         return;
     }
-    *prev_position = target_translation;
+    *prev_position = target_position;
 
-    for (entity, transform, mut cube_tree) in planet_query.iter_mut() {
-        let relative_pos = target_translation - transform.translation;
+    for (entity, cell, transform, mut cube_tree) in planet_query.iter_mut() {
+        let planet_position = grid.grid_position_double(cell, transform);
+        let relative_pos = target_position - planet_position;
         cube_tree.insert(relative_pos);
         commands
             .entity(entity)
-            .trigger(GenerateMeshes(target_translation));
+            .trigger(GenerateMeshes(relative_pos));
     }
 }
 
-fn generate_meshes(
+fn generate_meshes<const SUBDIVISIONS: usize>(
     trigger: Trigger<GenerateMeshes>,
-    mut commands: Commands,
-    mut planet_query: Query<(&CubeTree, &Radius, &mut ChunkCache), With<Body>>,
-) {
+    par_commands: ParallelCommands,
+    mut planet_query: Query<(&CubeTree, &Grid<Precision>, &GridCell<Precision>, &Radius, &mut ChunkCache), With<Body>>,
+)
+where
+    [(); SUBDIVISIONS]:,
+    [(); (SUBDIVISIONS + 2) * 2]:,
+    [(); (((SUBDIVISIONS + 2) * 2) - 1).pow(2) * 6]:,
+{
     let entity = trigger.entity();
     let target_position = trigger.0;
     let thread_pool = AsyncComputeTaskPool::get();
 
-    for (cube_tree, radius, mut cache) in planet_query.iter_mut() {
+    planet_query.par_iter_mut().for_each(|(cube_tree, grid, grid_cell, radius, mut cache)|{
         for (axis, root_node) in cube_tree.faces.iter() {
-            let mesh_builder = ChunkMeshBuilder::new(radius.0);
+            let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(radius.0);
             let chunk_cache = cache.get_mut(axis).unwrap();
 
             let children = root_node.filtered_children(|node: &CubeTreeNode| {
@@ -121,9 +147,11 @@ fn generate_meshes(
             });
 
             let hash_set: HashSet<_> = children.iter().map(|node| Bounds(node.bounds())).collect();
-            for (_, entity) in chunk_cache.extract_if(|bounds, _| !hash_set.contains(bounds)) {
-                commands.entity(entity).insert(DespawnChunk);
-            }
+            par_commands.command_scope(|mut commands| {
+                for (_, entity) in chunk_cache.extract_if(|bounds, _| !hash_set.contains(bounds)) {
+                    commands.entity(entity).insert(DespawnChunk);
+                }
+            });
 
             let axis = *axis;
             for node in children.iter() {
@@ -131,8 +159,9 @@ fn generate_meshes(
                 if chunk_cache.contains_key(&Bounds(bounds)) {
                     continue;
                 }
-
-                let chunk_entity = commands.spawn_empty().set_parent(entity).insert(Chunk).id();
+                
+                let chunk_entity = par_commands.command_scope(|mut commands|{ commands.spawn_empty().set_parent(entity).insert(Chunk).id() });
+                
                 chunk_cache.insert(Bounds(bounds), chunk_entity);
 
                 let has_collider = node.collider();
@@ -141,8 +170,6 @@ fn generate_meshes(
                     let mut command_queue = CommandQueue::default();
 
                     let mesh = mesh_builder.build(bounds, axis);
-                    // let collider = Collider::trimesh_from_mesh(&mesh)
-                    //     .expect("expected collider construction to succeed");
                     let collider = has_collider.then(|| {
                         Collider::trimesh_from_mesh(&mesh)
                             .expect("expected collider construction to succeed")
@@ -156,19 +183,19 @@ fn generate_meshes(
 
                         if let Ok(mut entity_mut) = world.get_entity_mut(chunk_entity) {
                             entity_mut.insert(Mesh3d(mesh_handle));
-                            // entity_mut.insert((Mesh3d(mesh_handle), collider));
                             if let Some(collider) = collider {
-                                info!("inserting collider");
                                 entity_mut.insert(collider);
                             }
                         }
                     });
                     command_queue
                 });
-                commands.entity(chunk_entity).insert(GenerateChunk(task));
+                par_commands.command_scope(|mut commands| {
+                    commands.entity(chunk_entity).insert(GenerateChunk(task));
+                });
             }
         }
-    }
+    });
 }
 
 fn handle_chunk_generation_tasks(

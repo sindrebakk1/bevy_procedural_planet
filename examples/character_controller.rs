@@ -7,6 +7,7 @@ use procedural_planet::{
         physics::{GravityField, PhysicsPlugin},
         player::{Player, PlayerPlugin},
     },
+    Precision,
 };
 
 fn main() {
@@ -25,8 +26,8 @@ fn main() {
 
     #[cfg(debug_assertions)]
     {
-        use procedural_planet::debug::DebugPlugin;
-        app.add_plugins(DebugPlugin);
+        use procedural_planet::plugins::DebugPlugin;
+        app.add_plugins(DebugPlugin::<Precision>::default());
     }
 
     app.run();
@@ -42,7 +43,7 @@ fn setup(
             Name::new("Scene"),
             Mesh3d(meshes.add(Plane3d::default().mesh().size(128.0, 128.0))),
             MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::srgb(0.3, 0.5, 0.3)))),
-            Collider::half_space(Vec3::Y),
+            Collider::half_space(Vector::Y),
             RigidBody::Static,
             GravityField::Linear(Vector::Y * -9.81),
         ))

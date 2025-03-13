@@ -1,17 +1,17 @@
+use avian3d::math::AdjustPrecision;
 use avian3d::prelude::*;
 use bevy::{
     ecs::{component::ComponentId, world::DeferredWorld},
     prelude::*,
 };
 use bevy_tnua::TnuaUserControlsSystemSet;
+use big_space::prelude::FloatingOrigin;
 
 pub mod controls;
 
-use crate::plugins::physics::CharacterController;
-
 pub use controls::PlayerCamera;
 
-use crate::plugins::terrain::GenerateMeshes;
+use crate::plugins::{physics::CharacterController, terrain::GenerateMeshes};
 use controls::{
     apply_camera_controls, apply_player_controls, grab_ungrab_mouse, ForwardFromCamera,
 };
@@ -44,8 +44,9 @@ fn on_add_player(mut world: DeferredWorld, entity: Entity, _id: ComponentId) {
             Mesh3d(mesh_handle),
             MeshMaterial3d(material_handle),
             ColliderConstructor::TrimeshFromMesh,
+            FloatingOrigin,
         ))
-        .trigger(GenerateMeshes(spawn_position));
+        .trigger(GenerateMeshes(spawn_position.adjust_precision()));
 
     world.commands().spawn((
         PlayerCamera,

@@ -1,4 +1,4 @@
-use avian3d::{prelude::*, schedule::PhysicsSchedule};
+use avian3d::{math::Vector, prelude::*, schedule::PhysicsSchedule};
 use bevy::{
     ecs::{component::ComponentId, world::DeferredWorld},
     prelude::*,
@@ -43,7 +43,7 @@ fn on_add_character_controller(mut world: DeferredWorld, entity: Entity, _id: Co
     world
         .commands()
         .entity(entity)
-        .insert(TnuaCrouchEnforcer::new(0.5 * Vec3::Y, |cmd| {
+        .insert(TnuaCrouchEnforcer::new(0.5 * Vector::Y, |cmd| {
             cmd.insert(TnuaAvian3dSensorShape(Collider::cylinder(0.5, 0.0)));
         }));
 }

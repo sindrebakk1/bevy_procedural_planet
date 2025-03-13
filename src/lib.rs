@@ -1,3 +1,6 @@
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+
 pub mod constants;
 pub mod keybinds;
 pub mod materials;
@@ -5,18 +8,22 @@ pub mod math;
 pub mod plugins;
 pub mod state;
 
-#[cfg(debug_assertions)]
-pub mod debug;
-
+use avian3d::math::Vector;
 use bevy::prelude::*;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-
+use big_space::camera::CameraController;
+use big_space::{camera::CameraControllerPlugin, prelude::*};
 use materials::GlobalMaterialsPlugin;
 use plugins::{
     terrain::body::{Body, BodyPreset},
     AssetLoaderPlugin, PhysicsPlugin, PlayerPlugin, TerrainPlugin,
 };
 use state::GameState;
+
+#[cfg(feature = "f64")]
+pub type Precision = i64;
+
+#[cfg(not(feature = "f64"))]
+pub type Precision = i32;
 
 pub struct GamePlugin;
 
@@ -29,19 +36,20 @@ impl Plugin for GamePlugin {
                 brightness: 1000.0,
             })
             .add_plugins((
+                BigSpacePlugin::<Precision>::default(),
                 PhysicsPlugin::default(),
                 AssetLoaderPlugin,
-                PanOrbitCameraPlugin,
                 PlayerPlugin,
                 GlobalMaterialsPlugin,
                 TerrainPlugin::<OrbitCamera>::default(),
+                CameraControllerPlugin::<Precision>::default(),
             ))
             .add_systems(Startup, setup);
 
         #[cfg(debug_assertions)]
         {
-            use debug::DebugPlugin;
-            app.add_plugins(DebugPlugin);
+            use plugins::DebugPlugin;
+            app.add_plugins(DebugPlugin::<Precision>::default());
         }
     }
 }
@@ -50,15 +58,20 @@ impl Plugin for GamePlugin {
 pub struct OrbitCamera;
 
 fn setup(mut commands: Commands) {
-    let body_preset = BodyPreset::MOON / 100.0;
-    commands.spawn((
-        OrbitCamera,
-        PanOrbitCamera {
-            focus: Vec3::ZERO,
-            radius: Some(body_preset.radius * 2.0),
-            zoom_lower_limit: body_preset.radius + 5.0,
-            ..Default::default()
-        },
-    ));
-    commands.spawn(Body::from_preset(body_preset));
+    commands.spawn_big_space_default(|root: &mut GridCommands<Precision>| {
+        root.with_grid_default(|planet| {
+            let body = Body::from_preset(BodyPreset::EARTH);
+            let camera_pos = Vector::Y * (body.radius + 10.0);
+            let (camera_cell, camera_translation) = planet.grid().translation_to_grid(camera_pos);
+            planet.insert((body, Name::new("Planet")));
+
+            planet.spawn_spatial((
+                Camera3d::default(),
+                Transform::from_translation(camera_translation),
+                camera_cell,
+                FloatingOrigin,
+                CameraController::default(),
+            ));
+        });
+    });
 }

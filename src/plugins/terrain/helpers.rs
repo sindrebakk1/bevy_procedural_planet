@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use avian3d::math::{Scalar, Vector, PI};
+use avian3d::math::{Scalar, Vector, Vector2, PI};
 
 use super::cube_tree::Axis;
 
@@ -70,12 +70,12 @@ fn sphere_circumference_distance(pos: Vector, target: Vector, r: Scalar) -> Scal
     pos.dot(target).acos() * r
 }
 
-pub fn spherical_uv(pos: Vector) -> [Scalar; 2] {
+pub fn spherical_uv(pos: Vector) -> Vector2 {
     let phi = pos.z.atan2(pos.x); // Azimuth
     let theta = (pos.y).acos(); // Elevation
     let u = phi / (2.0 * PI) + 0.5;
     let v = theta / PI;
-    [u, v]
+    Vector2::new(u, v)
 }
 
 pub fn get_axis_element(v: Vector, face: Axis) -> Scalar {

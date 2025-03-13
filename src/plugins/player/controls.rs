@@ -1,4 +1,4 @@
-use avian3d::math::{Quaternion, Scalar, Vector, Vector2, FRAC_PI_2};
+use avian3d::math::{AdjustPrecision, Scalar, Vector};
 use bevy::{
     input::mouse::MouseMotion,
     prelude::*,
@@ -56,27 +56,27 @@ pub fn apply_player_controls(
         forward_from_camera,
     ) in query.iter_mut()
     {
-        let mut direction = Vector::ZERO;
+        let mut direction = Vec3::ZERO;
 
         if keyboard.any_pressed([KeyCode::ArrowUp, KeyCode::KeyW]) {
-            direction -= Vector::Z;
+            direction -= Vec3::Z;
         }
         if keyboard.any_pressed([KeyCode::ArrowDown, KeyCode::KeyS]) {
-            direction += Vector::Z;
+            direction += Vec3::Z;
         }
         if keyboard.any_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]) {
-            direction -= Vector::X;
+            direction -= Vec3::X;
         }
         if keyboard.any_pressed([KeyCode::ArrowRight, KeyCode::KeyD]) {
-            direction += Vector::X;
+            direction += Vec3::X;
         }
 
         direction = direction.clamp_length_max(1.0);
 
         if let Some(forward_from_camera) = forward_from_camera {
             direction = Transform::default()
-                .looking_to(forward_from_camera.forward, Vector::Y)
-                .transform_point(direction);
+                .looking_to(forward_from_camera.forward, Dir3::Y)
+                .transform_point(direction)
         }
 
         let jump = keyboard.any_pressed([KeyCode::Space]);
@@ -102,7 +102,7 @@ pub fn apply_player_controls(
             handler.dont_fall();
         }
 
-        let speed_factor =
+        let speed_factor: Scalar =
             if let Some((_, state)) = controller.concrete_action::<TnuaBuiltinCrouch>() {
                 if matches!(state, TnuaBuiltinCrouchState::Rising) {
                     1.0
@@ -117,13 +117,10 @@ pub fn apply_player_controls(
             desired_velocity: if turn_in_place {
                 Vector::ZERO
             } else {
-                direction * speed_factor * SPEED
+                direction.adjust_precision() * speed_factor * SPEED
             },
-            desired_forward: if let Some(forward_from_camera) = forward_from_camera {
-                Dir3::new(forward_from_camera.forward).ok()
-            } else {
-                Dir3::new(direction).ok()
-            },
+            desired_forward: forward_from_camera
+                .map_or(Dir3::new(direction).ok(), |camera| Some(camera.forward)),
             float_height: FLOAT_HEIGHT,
             max_slope: MAX_SLOPE,
             turning_angvel: TURNING_ANGULAR_VELOCITY,
@@ -147,7 +144,7 @@ pub fn apply_player_controls(
 
         if dash {
             controller.action(TnuaBuiltinDash {
-                displacement: direction.normalize() * DASH_DISTANCE,
+                displacement: direction.adjust_precision().normalize() * DASH_DISTANCE,
                 desired_forward: if forward_from_camera.is_none() {
                     Dir3::new(direction).ok()
                 } else {
@@ -176,28 +173,31 @@ pub fn apply_camera_controls(
         mouse_motion.read().map(|event| event.delta).sum()
     } else {
         mouse_motion.clear();
-        Vector2::ZERO
+        Vec2::ZERO
     };
     let Ok((player_transform, mut forward_from_camera)) = player_character_query.get_single_mut()
     else {
         return;
     };
 
-    let yaw = Quaternion::from_rotation_y(-0.01 * total_delta.x);
-    forward_from_camera.forward = yaw.mul_vec3(forward_from_camera.forward);
+    let yaw = Quat::from_rotation_y(-0.01 * total_delta.x);
+    forward_from_camera.forward = Dir3::new_unchecked(
+        yaw.mul_vec3(forward_from_camera.forward.as_vec3())
+            .normalize(),
+    );
 
     let pitch = 0.005 * total_delta.y;
-    forward_from_camera.pitch_angle =
-        (forward_from_camera.pitch_angle + pitch).clamp(-FRAC_PI_2, FRAC_PI_2);
+    forward_from_camera.pitch_angle = (forward_from_camera.pitch_angle + pitch)
+        .clamp(-std::f32::consts::FRAC_PI_2, std::f32::consts::FRAC_PI_2);
 
     for mut camera in camera_query.iter_mut() {
         camera.translation =
-            player_transform.translation() + -10.0 * forward_from_camera.forward + 1.0 * Vector::Y;
-        camera.look_to(forward_from_camera.forward, Vector::Y);
+            player_transform.translation() + -10.0 * forward_from_camera.forward + 1.0 * Vec3::Y;
+        camera.look_to(forward_from_camera.forward, Vec3::Y);
         let pitch_axis = camera.left();
         camera.rotate_around(
             player_transform.translation(),
-            Quaternion::from_axis_angle(*pitch_axis, forward_from_camera.pitch_angle),
+            Quat::from_axis_angle(*pitch_axis, forward_from_camera.pitch_angle),
         );
     }
 }
@@ -232,14 +232,14 @@ pub struct PlayerCamera;
 
 #[derive(Component)]
 pub struct ForwardFromCamera {
-    pub forward: Vector,
-    pub pitch_angle: Scalar,
+    pub forward: Dir3,
+    pub pitch_angle: f32,
 }
 
 impl Default for ForwardFromCamera {
     fn default() -> Self {
         Self {
-            forward: Vector::NEG_Z,
+            forward: Dir3::NEG_Z,
             pitch_angle: 0.0,
         }
     }

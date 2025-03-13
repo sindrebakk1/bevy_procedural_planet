@@ -21,15 +21,19 @@ codegen-units = 1
 strip = true
 
 [features]
-default = ["tnua_controller"]
+default = [
+    "dev",
+    "f64",
+]
 dev = [
     "bevy/dynamic_linking",
     "bevy/bevy_debug_stepping",
     "bevy/bevy_dev_tools",
+    "avian3d/debug-plugin",
+    "big_space/debug",
 ]
-tnua_controller = ["dep:bevy-tnua", "dep:bevy-tnua-avian3d"]
-gravity_batched_inserts = []
-gravity_batched_removals = []
+f32 = ["avian3d/f32", "avian3d/parry-f32", "bevy-tnua-avian3d/default"]
+f64 = ["avian3d/f64", "avian3d/parry-f64", "bevy-tnua/f64", "bevy-tnua-avian3d/f64"]
 
 [dependencies]
 bevy = { version = "0.15", default-features = false, features = [
@@ -56,22 +60,29 @@ bevy = { version = "0.15", default-features = false, features = [
     "default_font",
 ] }
 
-
-bevy_kira_audio = { version = "0.22" }
+approx = "0.5.1"
+avian3d = { version = "0.2" , default-features = false, features = [
+    "3d",
+    "bevy_picking",
+    "debug-plugin",
+    "parallel",
+    "simd",
+    "default-collider",
+    "collider-from-mesh"
+] }
 bevy_asset_loader = { version = "0.22" }
+bevy_kira_audio = { version = "0.22" }
 bevy-inspector-egui = "0.29"
 bevy_panorbit_camera = { version = "0.23", features = ["bevy_egui"] }
-gigs = "0.1"
-avian3d = { version = "0.2" }
-winit = { version = "0.30", default-features = false }
-image = { version = "0.25", default-features = false }
-thiserror = "2"
-log = { version = "0.4", features = ["max_level_trace", "release_max_level_warn"] }
-bevy-tnua = { version = "0.21.0", optional = true }
-bevy-tnua-avian3d = { version = "0.2.0", optional = true }
-serde = { version = "1.0.218", features = ["derive"] }
-approx = "0.5.1"
+bevy-tnua = { version = "0.21.0" }
+bevy-tnua-avian3d = { version = "0.2.0", default-features = false }
+big_space = { version = "0.9.1", features = ["camera"] }
 disqualified = "1.0.0"
+gigs = "0.1"
+image = { version = "0.25", default-features = false }
+log = { version = "0.4", features = ["max_level_trace", "release_max_level_warn"] }
+thiserror = "2"
+winit = { version = "0.30", default-features = false }
 
 [build-dependencies]
 embed-resource = "3.0.1"

@@ -1,119 +1,154 @@
-use bevy::{
-    asset::RenderAssetUsages,
-    math::{Dir3, Rect, Vec2, Vec3, Vec3Swizzles},
-    prelude::*,
-    render::mesh::{Indices, PrimitiveTopology},
-};
-
 use super::{
     cube_tree::Axis,
     helpers::{spherical_uv, unit_cube_to_sphere},
 };
+use crate::math::Rectangle;
+use avian3d::math::{Scalar, Vector, Vector2};
+use bevy::{
+    asset::RenderAssetUsages,
+    math::Vec3Swizzles,
+    prelude::*,
+    render::mesh::{Indices, PrimitiveTopology},
+};
 
 #[allow(unused)]
-trait RectExtension {
-    fn inverse_lerp(&self, point: Vec2) -> Vec2;
-    fn contains_rect(&self, rhs: Rect) -> bool;
+trait RectangleExtension {
+    fn inverse_lerp(&self, point: Vector2) -> Vector2;
+    fn contains_rect(&self, rhs: Rectangle) -> bool;
 }
 
-impl RectExtension for Rect {
+impl RectangleExtension for Rectangle {
     #[inline]
-    fn inverse_lerp(&self, point: Vec2) -> Vec2 {
-        Vec2::new(
+    fn inverse_lerp(&self, point: Vector2) -> Vector2 {
+        Vector2::new(
             (point.x - self.min.x) / (self.max.x - self.min.x),
             (point.y - self.min.y) / (self.max.y - self.min.y),
         )
     }
     #[inline(always)]
-    fn contains_rect(&self, rhs: Rect) -> bool {
+    fn contains_rect(&self, rhs: Rectangle) -> bool {
         self.contains(rhs.min) && self.contains(rhs.max)
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct ChunkMeshBuilder {
-    radius: f32,
+pub struct ChunkMeshBuilder<const SUBDIVISIONS: usize>
+where
+    [(); SUBDIVISIONS]:,
+    [(); (SUBDIVISIONS + 2) * 2]:,
+    [(); (((SUBDIVISIONS + 2) * 2) - 1).pow(2) * 6]:,
+{
+    radius: Scalar,
 }
 
 #[allow(unused)]
-impl ChunkMeshBuilder {
-    const SUBDIVISIONS: u32 = 6;
-    pub fn new(radius: f32) -> Self {
+impl<const SUBDIVISIONS: usize> ChunkMeshBuilder<SUBDIVISIONS>
+where
+    [(); SUBDIVISIONS + 2]:,
+    [(); (SUBDIVISIONS + 2) * 2]:,
+    [(); (((SUBDIVISIONS + 2) * 2) - 1).pow(2) * 6]:,
+{
+    const VERTEX_COUNT: usize = SUBDIVISIONS + 2;
+
+    pub fn new(radius: Scalar) -> Self {
         Self { radius }
     }
 
-    pub fn build(&self, bounds: Rect, axis: Axis) -> Mesh {
-        let vertex_count = Self::SUBDIVISIONS + 2;
+    pub fn build(&self, bounds: Rectangle, axis: Axis) -> Mesh {
+        let mut positions: [[f32; 3]; (SUBDIVISIONS + 2) * 2] = [[0.0; 3]; (SUBDIVISIONS + 2) * 2];
+        let mut normals: [[f32; 3]; (SUBDIVISIONS + 2) * 2] = [[0.0; 3]; (SUBDIVISIONS + 2) * 2];
+        let mut uvs: [[f32; 2]; (SUBDIVISIONS + 2) * 2] = [[0.0; 2]; (SUBDIVISIONS + 2) * 2];
+        let mut indices: [u32; (((SUBDIVISIONS + 2) * 2) - 1).pow(2) * 6] =
+            [0; (((SUBDIVISIONS + 2) * 2) - 1).pow(2) * 6];
 
-        let num_vertices = (vertex_count * 2) as usize;
-        let num_indices = ((vertex_count - 1) * (vertex_count - 1) * 6) as usize;
-
-        let mut positions: Vec<Vec3> = Vec::with_capacity(num_vertices);
-        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(num_vertices);
-        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(num_vertices);
-        let mut indices: Vec<u32> = Vec::with_capacity(num_indices);
-
-        let normal = Dir3::from(axis);
-        let local_x = normal.yzx();
-        let local_y = normal.cross(local_x);
-        let size = Vec2::splat(self.radius * 2.0);
+        let axis_normal = Vector::from(axis);
+        let local_x = axis_normal.yzx();
+        let local_y = axis_normal.cross(local_x);
+        let size = Vector2::splat(self.radius * 2.0);
 
         let bounds_min = bounds.min / size;
         let bounds_max = bounds.max / size;
 
-        let step_x = (bounds_max.x - bounds_min.x) / (vertex_count - 1) as f32;
-        let step_y = (bounds_max.y - bounds_min.y) / (vertex_count - 1) as f32;
+        let center_pos_on_cube = axis_normal
+            + (bounds_min.x + bounds_max.x) * local_x
+            + (bounds_min.y + bounds_max.y) * local_y;
 
-        for y in 0..vertex_count {
-            for x in 0..vertex_count {
-                let p_x = bounds_min.x + x as f32 * step_x;
-                let p_y = bounds_min.y + y as f32 * step_y;
+        // True center of the current chunk mesh in relation to the center of the planet
+        let center = unit_cube_to_sphere(center_pos_on_cube) * self.radius;
 
-                let pos_on_cube = normal.as_vec3() + p_x * 2.0 * local_x + p_y * 2.0 * local_y;
+        let step_x = (bounds_max.x - bounds_min.x) / (Self::VERTEX_COUNT - 1) as Scalar;
+        let step_y = (bounds_max.y - bounds_min.y) / (Self::VERTEX_COUNT - 1) as Scalar;
 
-                let pos = unit_cube_to_sphere(pos_on_cube);
-                positions.push(pos * self.radius);
-                normals.push(pos.normalize().to_array());
-                uvs.push(spherical_uv(pos));
+        for y in 0..Self::VERTEX_COUNT {
+            for x in 0..Self::VERTEX_COUNT {
+                let p_x = bounds_min.x + x as Scalar * step_x;
+                let p_y = bounds_min.y + y as Scalar * step_y;
+                let pos_on_cube =
+                    axis_normal + p_x * 2.0 * local_x + p_y * 2.0 * local_y;
+                let normal = unit_cube_to_sphere(pos_on_cube);
+                let pos = normal * self.radius;
+                
+                let index = x + y * Self::VERTEX_COUNT;
+                
+                #[cfg(feature = "f64")]
+                {
+                    positions[index] = (pos - center).as_vec3().to_array();
+                    normals[index] = normal.as_vec3().to_array();
+                    uvs[index] = spherical_uv(pos).as_vec2().to_array();
+                }
+                
+                #[cfg(not(feature = "f64"))]
+                {
+                    positions[index] = (pos * self.radius).to_array();
+                    normals[index] = normal.to_array();
+                    uvs[index] = spherical_uv(pos).to_array();
+                }
 
-                if x < vertex_count - 1 && y < vertex_count - 1 {
-                    let i = x + y * vertex_count;
+                if x < Self::VERTEX_COUNT - 1 && y < Self::VERTEX_COUNT - 1 {
                     match (p_x < 0.0, p_y < 0.0) {
                         (false, false) => {
-                            indices.push(i);
-                            indices.push(i + vertex_count + 1);
-                            indices.push(i + vertex_count);
-
-                            indices.push(i);
-                            indices.push(i + 1);
-                            indices.push(i + vertex_count + 1);
+                            let i = index * Self::VERTEX_COUNT;
+                            indices[i] = index as u32;
+                            indices[i + 1] = (index + Self::VERTEX_COUNT + 1) as u32;
+                            indices[i + 2] = (index + Self::VERTEX_COUNT) as u32;
+                            
+                            indices[i + 3] = index as u32;
+                            indices[i + 4] = (index + 1) as u32;
+                            indices[i + 5] = (index + Self::VERTEX_COUNT + 1) as u32;
+                            
                         }
                         (true, false) => {
-                            indices.push(i);
-                            indices.push(i + 1);
-                            indices.push(i + vertex_count);
+                            let i = index * Self::VERTEX_COUNT;
+                            indices[i] = index as u32;
+                            indices[i + 1] = (index + 1) as u32;
+                            indices[i + 2] = (index + Self::VERTEX_COUNT) as u32;
+                            
+                            indices[i + 3] = (index + 1) as u32;
+                            indices[i + 4] = (index + Self::VERTEX_COUNT + 1) as u32;
+                            indices[i + 5] = (index + Self::VERTEX_COUNT) as u32;
 
-                            indices.push(i + 1);
-                            indices.push(i + vertex_count + 1);
-                            indices.push(i + vertex_count);
                         }
                         (false, true) => {
-                            indices.push(i);
-                            indices.push(i + 1);
-                            indices.push(i + vertex_count);
+                            let i = index * Self::VERTEX_COUNT;
 
-                            indices.push(i + vertex_count);
-                            indices.push(i + 1);
-                            indices.push(i + vertex_count + 1);
+                            indices[i] = index as u32;
+                            indices[i + 1] = (index + 1) as u32;
+                            indices[i + 2] = (index + Self::VERTEX_COUNT) as u32;
+                            
+                            indices[i + 3] = (index + Self::VERTEX_COUNT) as u32;
+                            indices[i + 4] = (index + 1) as u32;
+                            indices[i + 5] = (index + Self::VERTEX_COUNT + 1) as u32;
                         }
                         (true, true) => {
-                            indices.push(i);
-                            indices.push(i + vertex_count + 1);
-                            indices.push(i + vertex_count);
+                            let i = index * Self::VERTEX_COUNT;
 
-                            indices.push(i + 1);
-                            indices.push(i + vertex_count + 1);
-                            indices.push(i);
+                            indices[i] = index as u32;
+                            indices[i + 1] = (index + Self::VERTEX_COUNT + 1) as u32;
+                            indices[i + 2] = (index + Self::VERTEX_COUNT) as u32;
+                            
+                            indices[i + 3] = (index + 1) as u32;
+                            indices[i + 4] = (index + Self::VERTEX_COUNT + 1) as u32;
+                            indices[i + 5] = index as u32;
                         }
                     }
                 }
@@ -124,9 +159,9 @@ impl ChunkMeshBuilder {
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_inserted_indices(Indices::U32(indices))
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(Indices::U32(Vec::from(indices)))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, Vec::from(positions))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, Vec::from(normals))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, Vec::from(uvs))
     }
 }

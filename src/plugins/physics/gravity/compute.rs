@@ -1,4 +1,7 @@
 use super::*;
+use crate::Precision;
+use avian3d::math::AdjustPrecision;
+use big_space::prelude::GridCell;
 
 /// Query type for entities with a [`Parent`] component.
 type ParentQuery<'w, 's> = Query<'w, 's, (Entity, &'static Parent)>;
@@ -8,7 +11,8 @@ type ComputeGravitiesChildQuery<'w, 's> = Query<
     's,
     (
         Has<GravityField>,
-        &'static GlobalTransform,
+        &'static GridCell<Precision>,
+        &'static Transform,
         Option<&'static mut LocalGravity>,
         Option<&'static Children>,
     ),
@@ -16,7 +20,13 @@ type ComputeGravitiesChildQuery<'w, 's> = Query<
 
 #[allow(clippy::type_complexity)]
 pub fn compute_local_gravities(
-    root_query: Query<(Entity, &GravityField, &GlobalTransform, &Children)>,
+    root_query: Query<(
+        Entity,
+        &GravityField,
+        Option<&GridCell<Precision>>,
+        &Transform,
+        &Children,
+    )>,
     child_query: ComputeGravitiesChildQuery,
     parent_query: ParentQuery,
 ) {
@@ -24,7 +34,8 @@ pub fn compute_local_gravities(
         |(
              entity,
              gravity_field,
-             global_transform,
+             grid_cell,
+             transform,
              children,
          )| {
             if !gravity_field.is_radial() {
@@ -52,7 +63,7 @@ pub fn compute_local_gravities(
 
 unsafe fn compute_local_gravities_recursive(
     parent_field: &GravityField,
-    source: &GlobalTransform,
+    source: &Vector,
     child_query: &ComputeGravitiesChildQuery,
     parent_query: &ParentQuery,
     entity: Entity,
@@ -65,13 +76,12 @@ unsafe fn compute_local_gravities_recursive(
     if has_field {
         return;
     };
-    if local_gravity.is_some() {
-        let vector_to_source = source.translation() - global_transform.translation();
-        unsafe {
-            local_gravity.unwrap_unchecked().0 =
-                vector_to_source.normalize() * parent_field.gravitational_acceleration(vector_to_source.length());
-        }
-    }
+    if let Some(mut local_gravity) = local_gravity {
+        let vector_to_source: Vector = source.translation().adjust_precision()
+            - global_transform.translation().adjust_precision();
+        local_gravity.0 = vector_to_source.normalize()
+            * parent_field.gravitational_acceleration(vector_to_source.length());
+    };
     let Some(children) = children else {
         return;
     };

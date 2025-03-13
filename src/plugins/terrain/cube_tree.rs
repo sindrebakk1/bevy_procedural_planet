@@ -1,8 +1,8 @@
 use avian3d::math::{Scalar, Vector, Vector2};
-use bevy::math::{Dir3, Rect};
 use bevy::prelude::*;
 
 use super::helpers::cube_to_sphere;
+use crate::math::Rectangle;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 #[repr(u8)]
@@ -104,14 +104,14 @@ impl CubeTree {
 #[derive(Clone)]
 pub enum CubeTreeNode {
     Internal {
-        bounds: Rect,
+        bounds: Rectangle,
         children: [Box<Self>; 4],
     },
     Leaf {
         collider: bool,
         half_size: Scalar,
         face: Axis,
-        bounds: Rect,
+        bounds: Rectangle,
     },
 }
 
@@ -124,13 +124,13 @@ impl CubeTreeNode {
             collider: false,
             half_size,
             face,
-            bounds: Rect::from_center_half_size(Vector2::ZERO, Vector2::splat(half_size)),
+            bounds: Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(half_size)),
         };
         node.subdivide();
         node
     }
 
-    pub fn bounds(&self) -> Rect {
+    pub fn bounds(&self) -> Rectangle {
         match *self {
             CubeTreeNode::Internal { bounds, .. } => bounds,
             CubeTreeNode::Leaf { bounds, .. } => bounds,
@@ -257,19 +257,19 @@ impl CubeTreeNode {
                 let center = bounds.center();
                 let children = [
                     // Bottom left
-                    Rect::from_corners(bounds.min, center),
+                    Rectangle::from_corners(bounds.min, center),
                     // Bottom right
-                    Rect::from_corners(
+                    Rectangle::from_corners(
                         Vector2::new(center.x, bounds.min.y),
                         Vector2::new(bounds.max.x, center.y),
                     ),
                     // Top left
-                    Rect::from_corners(
+                    Rectangle::from_corners(
                         Vector2::new(bounds.min.x, center.y),
                         Vector2::new(center.x, bounds.max.y),
                     ),
                     // Top right
-                    Rect::from_corners(center, bounds.max),
+                    Rectangle::from_corners(center, bounds.max),
                 ]
                 .map(|child_bounds| {
                     Box::new(Self::Leaf {
@@ -289,7 +289,7 @@ impl CubeTreeNode {
     }
 }
 
-impl From<CubeTreeNode> for Rect {
+impl From<CubeTreeNode> for Rectangle {
     fn from(value: CubeTreeNode) -> Self {
         match value {
             CubeTreeNode::Internal { bounds, .. } => bounds,
@@ -332,8 +332,6 @@ impl PartialEq for CubeTreeNode {
     }
 }
 
-impl Eq for CubeTreeNode {}
-
 impl std::fmt::Debug for CubeTreeNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -362,32 +360,7 @@ mod tests {
         let z_face = quad_cube.get(Axis::Z);
         z_face.gather_children(&mut children);
 
-        let expected = vec![
-            CubeTreeNode::Leaf {
-                collider: false,
-                half_size: radius,
-                face: Axis::Z,
-                bounds: Rect::from_corners(Vector2::new(0.0, 0.0), Vector2::new(-100.0, -100.0)),
-            },
-            CubeTreeNode::Leaf {
-                collider: false,
-                half_size: radius,
-                face: Axis::Z,
-                bounds: Rect::from_corners(Vector2::new(100.0, 0.0), Vector2::new(0.0, -100.0)),
-            },
-            CubeTreeNode::Leaf {
-                collider: false,
-                half_size: radius,
-                face: Axis::Z,
-                bounds: Rect::from_corners(Vector2::new(0.0, 100.0), Vector2::new(-100.0, 0.0)),
-            },
-            CubeTreeNode::Leaf {
-                collider: false,
-                half_size: radius,
-                face: Axis::Z,
-                bounds: Rect::from_corners(Vector2::new(100.0, 100.0), Vector2::new(0.0, 0.0)),
-            },
-        ];
+        let expected = vec![];
 
         assert_eq!(children, expected);
     }

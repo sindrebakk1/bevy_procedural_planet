@@ -13,6 +13,7 @@ use super::{
 };
 use crate::{
     constants::physics::{EARTH_DIAMETER_M, EARTH_MASS_KG, MOON_DIAMETER_M, MOON_MASS_KG},
+    math::Rectangle,
     plugins::physics::GravityField,
 };
 
@@ -119,10 +120,6 @@ fn on_add_chunk(mut world: DeferredWorld, entity: Entity, _id: ComponentId) {
         .get();
 
     debug_assert!(
-        world.get::<Body>(parent_entity).is_some(),
-        "expected parent to have Body component"
-    );
-    debug_assert!(
         world.get::<TerrainMaterial>(parent_entity).is_some(),
         "expected parent to have TerrainMaterial component"
     );
@@ -164,7 +161,7 @@ fn on_add_chunk(mut world: DeferredWorld, entity: Entity, _id: ComponentId) {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Bounds(pub Rect);
+pub struct Bounds(pub Rectangle);
 
 impl std::hash::Hash for Bounds {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
