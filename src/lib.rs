@@ -12,12 +12,14 @@ use avian3d::math::Vector;
 use bevy::prelude::*;
 use big_space::camera::CameraController;
 use big_space::{camera::CameraControllerPlugin, prelude::*};
+
 use materials::GlobalMaterialsPlugin;
 use plugins::{
     terrain::body::{Body, BodyPreset},
     AssetLoaderPlugin, PhysicsPlugin, PlayerPlugin, TerrainPlugin,
 };
 use state::GameState;
+use constants::terrain::CHUNK_SUBDIVISIONS;
 
 #[cfg(feature = "f64")]
 pub type Precision = i64;
@@ -41,7 +43,7 @@ impl Plugin for GamePlugin {
                 AssetLoaderPlugin,
                 PlayerPlugin,
                 GlobalMaterialsPlugin,
-                TerrainPlugin::<OrbitCamera>::default(),
+                TerrainPlugin::<OrbitCamera, CHUNK_SUBDIVISIONS>::default(),
                 CameraControllerPlugin::<Precision>::default(),
             ))
             .add_systems(Startup, setup);

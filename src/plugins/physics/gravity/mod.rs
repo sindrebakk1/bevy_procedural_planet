@@ -2,7 +2,14 @@ use avian3d::{
     math::{Scalar, Vector},
     prelude::*,
 };
-use bevy::prelude::*;
+use bevy::{
+    ecs::{
+        component::ComponentId,
+        world::DeferredWorld
+    },
+    prelude::*,
+};
+use big_space::grid::Grid;
 
 pub mod compute;
 pub mod parent_check;
@@ -14,6 +21,7 @@ use parent_check::ValidGravityParentCheckPlugin;
 use sync::{
     insert_local_gravities, propogate_linear_gravities, prune_gravities_on_component_removed,
 };
+use crate::Precision;
 
 pub type GlobalGravity = avian3d::dynamics::integrator::Gravity;
 
@@ -29,7 +37,7 @@ pub enum SyncGravitiesSystem {
     ///
     /// NOTE: Children of entities with [`GravityField::Radial`] will have their [`LocalGravity`]
     /// initialized as [`LocalGravity::ZERO`]. The correct value will be computed during [`PhysicsSet::Prepare`].
-    Propogate,
+    Propagate,
 }
 
 pub struct GravityPlugin;
@@ -40,7 +48,7 @@ impl Plugin for GravityPlugin {
             .add_plugins(ValidGravityParentCheckPlugin)
             .configure_sets(
                 PostStartup,
-                (SyncGravitiesSystem::Sync, SyncGravitiesSystem::Propogate)
+                (SyncGravitiesSystem::Sync, SyncGravitiesSystem::Propagate)
                     .chain()
                     .before(PhysicsSet::Prepare),
             )
@@ -53,13 +61,13 @@ impl Plugin for GravityPlugin {
                         insert_local_gravities,
                     )
                         .in_set(SyncGravitiesSystem::Sync),
-                    propogate_linear_gravities.in_set(SyncGravitiesSystem::Propogate),
+                    propogate_linear_gravities.in_set(SyncGravitiesSystem::Propagate),
                     compute_local_gravities.in_set(PhysicsSet::Prepare),
                 ),
             )
             .configure_sets(
                 PostUpdate,
-                (SyncGravitiesSystem::Sync, SyncGravitiesSystem::Propogate)
+                (SyncGravitiesSystem::Sync, SyncGravitiesSystem::Propagate)
                     .chain()
                     .before(PhysicsSet::Prepare),
             )
@@ -72,7 +80,7 @@ impl Plugin for GravityPlugin {
                         insert_local_gravities,
                     )
                         .in_set(SyncGravitiesSystem::Sync),
-                    propogate_linear_gravities.in_set(SyncGravitiesSystem::Propogate),
+                    propogate_linear_gravities.in_set(SyncGravitiesSystem::Propagate),
                     compute_local_gravities.in_set(PhysicsSet::Prepare),
                 ),
             );
@@ -92,6 +100,7 @@ impl Plugin for GravityPlugin {
 ///   gravity source (e.g., planets), where acceleration follows the inverse-square law.
 #[derive(Component, Debug, Copy, Clone, PartialEq)]
 #[require(Transform)]
+#[component(on_add = on_add_gravity_field)]
 pub enum GravityField {
     /// A uniform gravitational field that applies a constant force in a fixed direction.
     ///
@@ -162,6 +171,13 @@ impl GravityField {
             GravityField::Linear(_) => true,
             GravityField::Radial { .. } => false,
         }
+    }
+}
+
+fn on_add_gravity_field(world: DeferredWorld, entity: Entity, _id: ComponentId) {
+    debug_assert!(world.get::<Grid<Precision>>(entity).is_some(), "GravityField should only be added to entities with its own Grid");
+    if world.get::<Grid<Precision>>(entity).is_none() {
+        error!("GravityField added to {entity}, but it does not contain a Grid");
     }
 }
 

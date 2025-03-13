@@ -121,9 +121,17 @@ fn track_target_position<T: Component>(
 fn generate_meshes<const SUBDIVISIONS: usize>(
     trigger: Trigger<GenerateMeshes>,
     par_commands: ParallelCommands,
-    mut planet_query: Query<(&CubeTree, &Grid<Precision>, &GridCell<Precision>, &Radius, &mut ChunkCache), With<Body>>,
-)
-where
+    mut planet_query: Query<
+        (
+            &CubeTree,
+            &Grid<Precision>,
+            &GridCell<Precision>,
+            &Radius,
+            &mut ChunkCache,
+        ),
+        With<Body>,
+    >,
+) where
     [(); SUBDIVISIONS]:,
     [(); (SUBDIVISIONS + 2) * 2]:,
     [(); (((SUBDIVISIONS + 2) * 2) - 1).pow(2) * 6]:,
@@ -132,70 +140,81 @@ where
     let target_position = trigger.0;
     let thread_pool = AsyncComputeTaskPool::get();
 
-    planet_query.par_iter_mut().for_each(|(cube_tree, grid, grid_cell, radius, mut cache)|{
-        for (axis, root_node) in cube_tree.faces.iter() {
-            let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(radius.0);
-            let chunk_cache = cache.get_mut(axis).unwrap();
+    planet_query
+        .par_iter_mut()
+        .for_each(|(cube_tree, grid, grid_cell, radius, mut cache)| {
+            for (axis, root_node) in cube_tree.faces.iter() {
+                let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(axis, radius.0);
+                let chunk_cache = cache.get_mut(axis).unwrap();
 
-            let children = root_node.filtered_children(|node: &CubeTreeNode| {
-                node.center().map_or(false, |center| {
-                    (center - target_position)
-                        .normalize()
-                        .dot(center.normalize())
-                        > CHUNK_CULLING_ANGLE.to_radians().cos()
-                })
-            });
-
-            let hash_set: HashSet<_> = children.iter().map(|node| Bounds(node.bounds())).collect();
-            par_commands.command_scope(|mut commands| {
-                for (_, entity) in chunk_cache.extract_if(|bounds, _| !hash_set.contains(bounds)) {
-                    commands.entity(entity).insert(DespawnChunk);
-                }
-            });
-
-            let axis = *axis;
-            for node in children.iter() {
-                let bounds = node.bounds();
-                if chunk_cache.contains_key(&Bounds(bounds)) {
-                    continue;
-                }
-                
-                let chunk_entity = par_commands.command_scope(|mut commands|{ commands.spawn_empty().set_parent(entity).insert(Chunk).id() });
-                
-                chunk_cache.insert(Bounds(bounds), chunk_entity);
-
-                let has_collider = node.collider();
-
-                let task = thread_pool.spawn(async move {
-                    let mut command_queue = CommandQueue::default();
-
-                    let mesh = mesh_builder.build(bounds, axis);
-                    let collider = has_collider.then(|| {
-                        Collider::trimesh_from_mesh(&mesh)
-                            .expect("expected collider construction to succeed")
-                    });
-
-                    command_queue.push(move |world: &mut World| {
-                        let mesh_handle = world
-                            .get_resource_mut::<Assets<Mesh>>()
-                            .expect("expected Assets<Mesh> resource to exist")
-                            .add(mesh);
-
-                        if let Ok(mut entity_mut) = world.get_entity_mut(chunk_entity) {
-                            entity_mut.insert(Mesh3d(mesh_handle));
-                            if let Some(collider) = collider {
-                                entity_mut.insert(collider);
-                            }
-                        }
-                    });
-                    command_queue
+                let children = root_node.filtered_children(|node: &CubeTreeNode| {
+                    node.center().map_or(false, |center| {
+                        (center - target_position)
+                            .normalize()
+                            .dot(center.normalize())
+                            > CHUNK_CULLING_ANGLE.to_radians().cos()
+                    })
                 });
+
+                let hash_set: HashSet<_> =
+                    children.iter().map(|node| Bounds(node.bounds())).collect();
                 par_commands.command_scope(|mut commands| {
-                    commands.entity(chunk_entity).insert(GenerateChunk(task));
+                    for (_, entity) in
+                        chunk_cache.extract_if(|bounds, _| !hash_set.contains(bounds))
+                    {
+                        commands.entity(entity).insert(DespawnChunk);
+                    }
                 });
+
+                for node in children.iter() {
+                    let bounds = node.bounds();
+                    if chunk_cache.contains_key(&Bounds(bounds)) {
+                        continue;
+                    }
+
+                    let (grid_cell, translation) = (grid as &Grid<Precision>).translation_to_grid(node.center().unwrap_unchecked());
+                    let chunk_entity = par_commands.command_scope(|mut commands| {
+                        commands.spawn_empty().set_parent(entity).insert((
+                            Chunk,
+                            grid_cell,
+                            Transform::from_translation(translation)
+                        )).id()
+                    });
+
+                    chunk_cache.insert(Bounds(bounds), chunk_entity);
+
+                    let has_collider = node.collider();
+
+                    let task = thread_pool.spawn(async move {
+                        let mut command_queue = CommandQueue::default();
+
+                        let mesh = mesh_builder.build(bounds);
+                        let collider = has_collider.then(|| {
+                            Collider::trimesh_from_mesh(&mesh)
+                                .expect("expected collider construction to succeed")
+                        });
+
+                        command_queue.push(move |world: &mut World| {
+                            let mesh_handle = world
+                                .get_resource_mut::<Assets<Mesh>>()
+                                .expect("expected Assets<Mesh> resource to exist")
+                                .add(mesh);
+
+                            if let Ok(mut entity_mut) = world.get_entity_mut(chunk_entity) {
+                                entity_mut.insert(Mesh3d(mesh_handle));
+                                if let Some(collider) = collider {
+                                    entity_mut.insert(collider);
+                                }
+                            }
+                        });
+                        command_queue
+                    });
+                    par_commands.command_scope(|mut commands| {
+                        commands.entity(chunk_entity).insert(GenerateChunk(task));
+                    });
+                }
             }
-        }
-    });
+        });
 }
 
 fn handle_chunk_generation_tasks(
