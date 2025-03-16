@@ -3,10 +3,7 @@ use avian3d::{
     prelude::*,
 };
 use bevy::{
-    ecs::{
-        component::ComponentId,
-        world::DeferredWorld
-    },
+    ecs::{component::ComponentId, world::DeferredWorld},
     prelude::*,
 };
 use big_space::grid::Grid;
@@ -16,12 +13,12 @@ pub mod parent_check;
 pub mod sync;
 
 use crate::constants::physics::G;
+use crate::Precision;
 use compute::compute_local_gravities;
 use parent_check::ValidGravityParentCheckPlugin;
 use sync::{
     insert_local_gravities, propogate_linear_gravities, prune_gravities_on_component_removed,
 };
-use crate::Precision;
 
 pub type GlobalGravity = avian3d::dynamics::integrator::Gravity;
 
@@ -175,7 +172,10 @@ impl GravityField {
 }
 
 fn on_add_gravity_field(world: DeferredWorld, entity: Entity, _id: ComponentId) {
-    debug_assert!(world.get::<Grid<Precision>>(entity).is_some(), "GravityField should only be added to entities with its own Grid");
+    debug_assert!(
+        world.get::<Grid<Precision>>(entity).is_some(),
+        "GravityField should only be added to entities with its own Grid"
+    );
     if world.get::<Grid<Precision>>(entity).is_none() {
         error!("GravityField added to {entity}, but it does not contain a Grid");
     }

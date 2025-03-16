@@ -48,7 +48,7 @@ fn on_add_player(mut world: DeferredWorld, entity: Entity, _id: ComponentId) {
         ))
         .trigger(GenerateMeshes(spawn_position.adjust_precision()));
 
-    world.commands().spawn((
+    world.commands().spawn_empty().set_parent(entity).insert((
         PlayerCamera,
         Camera3d::default(),
         Transform::from_translation(spawn_position - (Vec3::NEG_Z * -10.0))

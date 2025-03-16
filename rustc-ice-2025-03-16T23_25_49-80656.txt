@@ -1,0 +1,104 @@
+delayed bug: Encountered anon const with inference variable args but no error reported
+   0: std::backtrace_rs::backtrace::win64::trace
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\..\..\backtrace\src\backtrace\win64.rs:85
+   1: std::backtrace_rs::backtrace::trace_unsynchronized
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\..\..\backtrace\src\backtrace\mod.rs:66
+   2: std::backtrace::Backtrace::create
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\backtrace.rs:331
+   3: std::backtrace::Backtrace::capture
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\backtrace.rs:296
+   4: <rustc_errors::DiagCtxtHandle>::flush_delayed
+   5: <rustc_errors::DiagCtxtHandle>::emit_diagnostic
+   6: <rustc_span::ErrorGuaranteed as rustc_errors::diagnostic::EmissionGuarantee>::emit_producing_guarantee
+   7: RINvMs6_NtCsmhStbzAsxo_9hashbrown3rawINtB6_8RawTableTjINtNtNtCsaCfNYYYC2l0_13rustc_type_ir12search_graph12global_cache12WithOverflowNtNtNtCsbfkemvpnXNB_12rustc_middle2ty7context6TyCtxtEEE14reserve_rehashNCINvNtB8_3map11make_hasherjBQ_INtNtCs3qTsKIfjMeK_4co
+   8: rustc_trait_selection::traits::try_evaluate_const
+   9: <rustc_trait_selection::traits::normalize::AssocTypeNormalizer as rustc_type_ir::fold::TypeFolder<rustc_middle::ty::context::TyCtxt>>::fold_const
+  10: RINvMs6_NtCsmhStbzAsxo_9hashbrown3rawINtB6_8RawTableTNtNtCsgjN8fABt9kJ_9rustc_hir6hir_id11ItemLocalIdNtNtCsbfkemvpnXNB_12rustc_middle2ty2TyEE14reserve_rehashNCINvNtB8_3map11make_hasherBP_B1B_NtCs4BuTlxXLqVl_10rustc_hash13FxBuildHasherE0ECscDNCmvgDOrZ_16rus
+  11: RINvMs6_NtCsmhStbzAsxo_9hashbrown3rawINtB6_8RawTableTNtNtCsgjN8fABt9kJ_9rustc_hir6hir_id11ItemLocalIdNtNtCsbfkemvpnXNB_12rustc_middle2ty2TyEE14reserve_rehashNCINvNtB8_3map11make_hasherBP_B1B_NtCs4BuTlxXLqVl_10rustc_hash13FxBuildHasherE0ECscDNCmvgDOrZ_16rus
+  12: rustc_hir_typeck::typeck
+  13: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  14: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  15: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  16: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  17: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  18: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  19: rustc_hir_typeck::typeck
+  20: <rustc_hir_typeck::upvar::InferBorrowKind as rustc_hir_typeck::expr_use_visitor::Delegate>::borrow
+  21: rustc_hir_typeck::typeck
+  22: rustc_query_impl::plumbing::query_key_hash_verify_all
+  23: RINvNtNtCsiyZPjbNzrcj_18rustc_query_system5query8plumbing17try_execute_queryINtCsjwHnzh2EOZN_16rustc_query_impl13DynamicConfigINtNtCskx7qmTo1s7W_21rustc_data_structures9vec_cache8VecCacheNtNtCs4REBOxyenId_10rustc_span6def_id10LocalDefIdINtNtNtCsbfkemvpnXNB
+  24: rustc_query_impl::plumbing::query_key_hash_verify_all
+  25: <hashbrown::raw::RawTable<(&usize, ())>>::reserve_rehash::<hashbrown::map::make_hasher<&usize, (), rustc_hash::FxBuildHasher>::{closure#0}>
+  26: rustc_hir_analysis::check_crate
+  27: rustc_interface::passes::resolver_for_lowering_raw
+  28: rustc_interface::passes::analysis
+  29: RINvNtNtCsiyZPjbNzrcj_18rustc_query_system5query8plumbing17try_execute_queryINtCsjwHnzh2EOZN_16rustc_query_impl13DynamicConfigINtNtCskx7qmTo1s7W_21rustc_data_structures9vec_cache8VecCacheNtNtCs4REBOxyenId_10rustc_span6def_id8CrateNumINtNtNtCsbfkemvpnXNB_12
+  30: RINvNtNtCsiyZPjbNzrcj_18rustc_query_system5query8plumbing17try_execute_queryINtCsjwHnzh2EOZN_16rustc_query_impl13DynamicConfigINtNtB4_6caches11SingleCacheINtNtNtCsbfkemvpnXNB_12rustc_middle5query5erase6ErasedAhj0_EEKb0_KB3s_KB3s_ENtNtB1f_8plumbing9QueryCtx
+  31: rustc_query_impl::query_system
+  32: RINvNtNtCsTHfZx4iaLy_3std3sys9backtrace28___rust_begin_short_backtraceNCNCNCINvMNtB6_6threadNtB1g_7Builder16spawn_unchecked_INtNtCskj83ZzwhrhO_5alloc5boxed3BoxDINtNtNtCs3qTsKIfjMeK_4core3ops8function6FnOnceuEp6OutputuNtNtB2F_6marker4SendEL_EuEs_000uECs1YUz
+  33: RINvNtNtCsTHfZx4iaLy_3std3sys9backtrace28___rust_begin_short_backtraceNCNCNCINvMNtB6_6threadNtB1g_7Builder16spawn_unchecked_INtNtCskj83ZzwhrhO_5alloc5boxed3BoxDINtNtNtCs3qTsKIfjMeK_4core3ops8function6FnOnceuEp6OutputuNtNtB2F_6marker4SendEL_EuEs_000uECs1YUz
+  34: RINvNtNtCsTHfZx4iaLy_3std3sys9backtrace28___rust_begin_short_backtraceNCNCINvNtCsgVr0X5V7ViS_15rustc_interface4util26run_in_thread_with_globalsNCINvB1d_31run_in_thread_pool_with_globalsNCINvNtB1f_9interface12run_compileruNCNvCs1YUzUvqVDQr_17rustc_driver_im
+  35: RINvNtNtCsTHfZx4iaLy_3std3sys9backtrace28___rust_begin_short_backtraceNCNCNCINvMNtB6_6threadNtB1g_7Builder16spawn_unchecked_INtNtCskj83ZzwhrhO_5alloc5boxed3BoxDINtNtNtCs3qTsKIfjMeK_4core3ops8function6FnOnceuEp6OutputuNtNtB2F_6marker4SendEL_EuEs_000uECs1YUz
+  36: alloc::boxed::impl$28::call_once
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\alloc\src\boxed.rs:1970
+  37: alloc::boxed::impl$28::call_once
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\alloc\src\boxed.rs:1970
+  38: std::sys::pal::windows::thread::impl$0::new::thread_start
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\sys\pal\windows\thread.rs:56
+  39: BaseThreadInitThunk
+  40: RtlUserThreadStart
+
+delayed bug: Encountered anon const with inference variable args but no error reported
+   0: std::backtrace_rs::backtrace::win64::trace
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\..\..\backtrace\src\backtrace\win64.rs:85
+   1: std::backtrace_rs::backtrace::trace_unsynchronized
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\..\..\backtrace\src\backtrace\mod.rs:66
+   2: std::backtrace::Backtrace::create
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\backtrace.rs:331
+   3: std::backtrace::Backtrace::capture
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\backtrace.rs:296
+   4: <rustc_errors::DiagCtxtHandle>::flush_delayed
+   5: <rustc_errors::DiagCtxtHandle>::emit_diagnostic
+   6: <rustc_span::ErrorGuaranteed as rustc_errors::diagnostic::EmissionGuarantee>::emit_producing_guarantee
+   7: RINvMs6_NtCsmhStbzAsxo_9hashbrown3rawINtB6_8RawTableTjINtNtNtCsaCfNYYYC2l0_13rustc_type_ir12search_graph12global_cache12WithOverflowNtNtNtCsbfkemvpnXNB_12rustc_middle2ty7context6TyCtxtEEE14reserve_rehashNCINvNtB8_3map11make_hasherjBQ_INtNtCs3qTsKIfjMeK_4co
+   8: rustc_trait_selection::traits::try_evaluate_const
+   9: <rustc_trait_selection::traits::normalize::AssocTypeNormalizer as rustc_type_ir::fold::TypeFolder<rustc_middle::ty::context::TyCtxt>>::fold_const
+  10: RINvMs6_NtCsmhStbzAsxo_9hashbrown3rawINtB6_8RawTableTNtNtCsgjN8fABt9kJ_9rustc_hir6hir_id11ItemLocalIdNtNtCsbfkemvpnXNB_12rustc_middle2ty2TyEE14reserve_rehashNCINvNtB8_3map11make_hasherBP_B1B_NtCs4BuTlxXLqVl_10rustc_hash13FxBuildHasherE0ECscDNCmvgDOrZ_16rus
+  11: RINvMs6_NtCsmhStbzAsxo_9hashbrown3rawINtB6_8RawTableTNtNtCsgjN8fABt9kJ_9rustc_hir6hir_id11ItemLocalIdNtNtCsbfkemvpnXNB_12rustc_middle2ty2TyEE14reserve_rehashNCINvNtB8_3map11make_hasherBP_B1B_NtCs4BuTlxXLqVl_10rustc_hash13FxBuildHasherE0ECscDNCmvgDOrZ_16rus
+  12: rustc_hir_typeck::typeck
+  13: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  14: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  15: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  16: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  17: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  18: <<rustc_hir_typeck::fn_ctxt::FnCtxt>::deduce_closure_signature_from_predicates::MentionsTy as rustc_type_ir::visit::TypeVisitor<rustc_middle::ty::context::TyCtxt>>::visit_ty
+  19: rustc_hir_typeck::typeck
+  20: <rustc_hir_typeck::upvar::InferBorrowKind as rustc_hir_typeck::expr_use_visitor::Delegate>::borrow
+  21: rustc_hir_typeck::typeck
+  22: rustc_query_impl::plumbing::query_key_hash_verify_all
+  23: RINvNtNtCsiyZPjbNzrcj_18rustc_query_system5query8plumbing17try_execute_queryINtCsjwHnzh2EOZN_16rustc_query_impl13DynamicConfigINtNtCskx7qmTo1s7W_21rustc_data_structures9vec_cache8VecCacheNtNtCs4REBOxyenId_10rustc_span6def_id10LocalDefIdINtNtNtCsbfkemvpnXNB
+  24: rustc_query_impl::plumbing::query_key_hash_verify_all
+  25: <hashbrown::raw::RawTable<(&usize, ())>>::reserve_rehash::<hashbrown::map::make_hasher<&usize, (), rustc_hash::FxBuildHasher>::{closure#0}>
+  26: rustc_hir_analysis::check_crate
+  27: rustc_interface::passes::resolver_for_lowering_raw
+  28: rustc_interface::passes::analysis
+  29: RINvNtNtCsiyZPjbNzrcj_18rustc_query_system5query8plumbing17try_execute_queryINtCsjwHnzh2EOZN_16rustc_query_impl13DynamicConfigINtNtCskx7qmTo1s7W_21rustc_data_structures9vec_cache8VecCacheNtNtCs4REBOxyenId_10rustc_span6def_id8CrateNumINtNtNtCsbfkemvpnXNB_12
+  30: RINvNtNtCsiyZPjbNzrcj_18rustc_query_system5query8plumbing17try_execute_queryINtCsjwHnzh2EOZN_16rustc_query_impl13DynamicConfigINtNtB4_6caches11SingleCacheINtNtNtCsbfkemvpnXNB_12rustc_middle5query5erase6ErasedAhj0_EEKb0_KB3s_KB3s_ENtNtB1f_8plumbing9QueryCtx
+  31: rustc_query_impl::query_system
+  32: RINvNtNtCsTHfZx4iaLy_3std3sys9backtrace28___rust_begin_short_backtraceNCNCNCINvMNtB6_6threadNtB1g_7Builder16spawn_unchecked_INtNtCskj83ZzwhrhO_5alloc5boxed3BoxDINtNtNtCs3qTsKIfjMeK_4core3ops8function6FnOnceuEp6OutputuNtNtB2F_6marker4SendEL_EuEs_000uECs1YUz
+  33: RINvNtNtCsTHfZx4iaLy_3std3sys9backtrace28___rust_begin_short_backtraceNCNCNCINvMNtB6_6threadNtB1g_7Builder16spawn_unchecked_INtNtCskj83ZzwhrhO_5alloc5boxed3BoxDINtNtNtCs3qTsKIfjMeK_4core3ops8function6FnOnceuEp6OutputuNtNtB2F_6marker4SendEL_EuEs_000uECs1YUz
+  34: RINvNtNtCsTHfZx4iaLy_3std3sys9backtrace28___rust_begin_short_backtraceNCNCINvNtCsgVr0X5V7ViS_15rustc_interface4util26run_in_thread_with_globalsNCINvB1d_31run_in_thread_pool_with_globalsNCINvNtB1f_9interface12run_compileruNCNvCs1YUzUvqVDQr_17rustc_driver_im
+  35: RINvNtNtCsTHfZx4iaLy_3std3sys9backtrace28___rust_begin_short_backtraceNCNCNCINvMNtB6_6threadNtB1g_7Builder16spawn_unchecked_INtNtCskj83ZzwhrhO_5alloc5boxed3BoxDINtNtNtCs3qTsKIfjMeK_4core3ops8function6FnOnceuEp6OutputuNtNtB2F_6marker4SendEL_EuEs_000uECs1YUz
+  36: alloc::boxed::impl$28::call_once
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\alloc\src\boxed.rs:1970
+  37: alloc::boxed::impl$28::call_once
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\alloc\src\boxed.rs:1970
+  38: std::sys::pal::windows::thread::impl$0::new::thread_start
+             at /rustc/4d30011f6c616be074ba655a75e5d55441232bbb/library\std\src\sys\pal\windows\thread.rs:56
+  39: BaseThreadInitThunk
+  40: RtlUserThreadStart
+
+
+
+rustc version: 1.87.0-nightly (4d30011f6 2025-03-15)
+platform: x86_64-pc-windows-msvc

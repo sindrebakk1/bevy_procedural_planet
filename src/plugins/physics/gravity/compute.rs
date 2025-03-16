@@ -55,7 +55,7 @@ pub fn compute_local_gravities(
                     compute_local_gravities_recursive(
                         grid,
                         gravity_field,
-                        source,
+                        &source,
                         &child_query,
                         &parent_query,
                         child,
@@ -83,7 +83,15 @@ unsafe fn compute_local_gravities_recursive(
         return;
     };
     if let Some(mut local_gravity) = local_gravity {
-        let vector_to_source = source - parent_grid.grid_position_double(grid_cell, transform).adjust_precision();
+        let vector_to_source = source
+            - parent_grid
+                .grid_position_double(grid_cell, transform)
+                .adjust_precision();
+        info!(
+            "vec to source: {vector_to_source:?}, local gravity: {g:?}",
+            g = vector_to_source.normalize()
+                * parent_field.gravitational_acceleration(vector_to_source.length())
+        );
         local_gravity.0 = vector_to_source.normalize()
             * parent_field.gravitational_acceleration(vector_to_source.length());
     };

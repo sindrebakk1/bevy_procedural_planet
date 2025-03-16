@@ -22,20 +22,20 @@ use crate::{
 pub struct BodyPreset {
     pub mass: Scalar,
     pub radius: Scalar,
-    pub name: Option<String>,
+    pub name: Option<&'static str>,
 }
 
 impl BodyPreset {
     pub const EARTH: Self = Self {
         mass: EARTH_MASS_KG,
         radius: EARTH_DIAMETER_M / 2.0,
-        name: Some(String::from("Earth")),
+        name: Some("Earth"),
     };
 
     pub const MOON: Self = Self {
         mass: MOON_MASS_KG,
         radius: MOON_DIAMETER_M / 2.0,
-        name: Some(String::from("Moon")),
+        name: Some("Moon"),
     };
 }
 
@@ -50,22 +50,14 @@ impl std::ops::Div<Scalar> for BodyPreset {
     }
 }
 
-#[derive(Component, Reflect, Clone, Debug, InspectorOptions)]
+#[derive(Component, Reflect, Copy, Clone, Debug, InspectorOptions)]
 #[reflect(Component, InspectorOptions)]
-#[require(
-    Visibility,
-    Transform,
-    ChunkCache,
-    Name(Self::name),
-    CubeTree(Self::cube_tree),
-    Radius(Self::radius),
-    GravityField(Self::gravity_field)
-)]
+#[require(Visibility, Transform, ChunkCache)]
 #[component(on_add = on_add_body)]
 pub struct Body {
     pub mass: Scalar,
     pub radius: Scalar,
-    pub name: Option<String>,
+    pub name: Option<&'static str>,
 }
 
 impl Body {
@@ -86,37 +78,36 @@ impl Body {
         }
     }
 
-    fn cube_tree(&self) -> CubeTree {
-        CubeTree::new(self.radius)
-    }
-
-    fn radius(&self) -> Radius {
-        Radius(self.radius)
-    }
-
-    fn gravity_field(&self) -> GravityField {
-        GravityField::radial_from_mass(self.mass)
-    }
-
     fn name(&self) -> Name {
-        self.name
-            .clone()
-            .map_or(Name::new("Body"), |name| Name::new(name))
+        self.name.map_or(Name::new("Body"), Name::new)
     }
-
 }
-fn on_add_body(mut world: DeferredWorld, entity: Entity, _id: ComponentId) {
+fn on_add_body(mut world: DeferredWorld, entity: Entity, id: ComponentId) {
     let material_handle = world
         .get_resource::<TerrainMaterials>()
         .expect("expected TerrainMaterials resource to exist")
         .standard
         .clone();
 
+    debug_assert!(world.get_by_id(entity, id).is_some());
+
+    let body = unsafe {
+        *world
+            .get_by_id(entity, id)
+            .unwrap_unchecked()
+            .deref::<Body>()
+    };
     #[cfg(debug_assertions)]
     world
         .commands()
         .entity(entity)
-        .insert(TerrainMaterial::Standard(material_handle))
+        .insert((
+            body.name(),
+            TerrainMaterial::Standard(material_handle),
+            CubeTree::new(body.radius),
+            GravityField::radial_from_mass(body.mass),
+            Radius(body.radius),
+        ))
         .trigger(GenerateMeshes(Vector::MAX));
 
     #[cfg(not(debug_assertions))]

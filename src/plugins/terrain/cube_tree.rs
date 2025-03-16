@@ -1,8 +1,15 @@
+use std::ops::{Index, IndexMut};
 use avian3d::math::{Scalar, Vector, Vector2};
 use bevy::prelude::*;
+use bevy::utils::HashMap;
+use lazy_static::lazy_static;
 
-use super::helpers::cube_to_sphere;
-use crate::math::Rectangle;
+use crate::math::quad_tree::QuadTreeLeafIterMut;
+use crate::math::{
+    quad_tree::{QuadTreeLeafIter, QuadTreeNode},
+    Rectangle,
+};
+use crate::plugins::terrain::helpers::unit_cube_to_sphere;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 #[repr(u8)]
@@ -24,6 +31,44 @@ impl Axis {
         Self::NegY,
         Self::NegZ,
     ];
+
+    pub fn to_array_generic<T: num_traits::Float>(&self) -> [T; 3] {
+        match self {
+            Axis::X => [T::one(), T::zero(), T::zero()],
+            Axis::Y => [T::zero(), T::one(), T::zero()],
+            Axis::Z => [T::zero(), T::zero(), T::one()],
+            Axis::NegX => [-T::one(), T::zero(), T::zero()],
+            Axis::NegY => [T::zero(), -T::one(), T::zero()],
+            Axis::NegZ => [T::zero(), T::zero(), -T::one()],
+        }
+    }
+
+    #[inline]
+    pub fn to_array(&self) -> [Scalar; 3] {
+        self.to_array_generic()
+    }
+
+    #[cfg(feature = "f64")]
+    #[inline]
+    pub fn to_array_f32(&self) -> [f32; 3] {
+        self.to_array_generic()
+    }
+}
+
+lazy_static! {
+    pub static ref AXIS_COORDINATE_FRAMES: HashMap<Axis, (Vector, Vector, Vector)> = {
+        let mut m = HashMap::new();
+
+        for axis in Axis::ALL {
+            let axis_normal = Vector::from(axis);
+            let local_y = axis_normal.yzx();
+            let local_x = axis_normal.cross(local_y);
+
+            m.insert(axis, (axis_normal, local_x, local_y));
+        }
+
+        m
+    };
 }
 
 impl From<Axis> for Dir3 {
@@ -65,303 +110,254 @@ impl From<Axis> for Vector {
     }
 }
 
+impl From<&Axis> for Vector {
+    fn from(value: &Axis) -> Self {
+        match value {
+            Axis::X => Self::X,
+            Axis::Y => Self::Y,
+            Axis::Z => Self::Z,
+            Axis::NegX => Self::NEG_X,
+            Axis::NegY => Self::NEG_Y,
+            Axis::NegZ => Self::NEG_Z,
+        }
+    }
+}
+
+impl std::ops::Mul<Scalar> for Axis {
+    type Output = Vector;
+
+    fn mul(self, rhs: Scalar) -> Self::Output {
+        Vector::from_array(self.to_array().map(|v| v * rhs))
+    }
+}
+
+impl std::ops::Mul<Scalar> for &Axis {
+    type Output = Vector;
+
+    fn mul(self, rhs: Scalar) -> Self::Output {
+        Vector::from_array(self.to_array().map(|v| v * rhs))
+    }
+}
+
+#[cfg(feature = "f64")]
+impl std::ops::Mul<f32> for &Axis {
+    type Output = Vec3;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Vec3::from_array(self.to_array_f32().map(|v| v * rhs))
+    }
+}
+
+/// TODO: Store Axis in ChunkData, and consider pre-computing absolute center position on insert, also, maybe encode some value that can be used for accurate hashing?
+pub type ChunkData = bool;
+
 #[derive(Component, Clone, Debug)]
 pub struct CubeTree {
-    pub faces: [(Axis, CubeTreeNode); 6],
-    half_size: Scalar,
+    pub radius: Scalar,
+    pub faces: [(Axis, QuadTreeNode<ChunkData>); 6],
 }
 
 #[allow(unused)]
 impl CubeTree {
-    pub fn new(half_size: Scalar) -> Self {
-        let faces = Axis::ALL.map(|axis| (axis, CubeTreeNode::new(half_size, axis)));
-        Self { faces, half_size }
-    }
-
-    #[inline]
-    pub fn get(&self, axis: Axis) -> &CubeTreeNode {
-        &self.faces[axis as usize].1
-    }
-
-    #[inline]
-    pub fn get_mut(&mut self, axis: Axis) -> &mut CubeTreeNode {
-        &mut self.faces[axis as usize].1
-    }
-
-    pub fn set_root_node(&mut self, axis: Axis, node: CubeTreeNode) {
-        self.faces[axis as usize] = (axis, node)
-    }
-
-    pub fn insert(&mut self, relative_pos: Vector) {
-        for axis in Axis::ALL {
-            let mut new_node = CubeTreeNode::new(self.half_size, axis);
-            new_node.insert(relative_pos);
-            self.set_root_node(axis, new_node);
-        }
-    }
-}
-
-#[derive(Clone)]
-pub enum CubeTreeNode {
-    Internal {
-        bounds: Rectangle,
-        children: [Box<Self>; 4],
-    },
-    Leaf {
-        collider: bool,
-        half_size: Scalar,
-        face: Axis,
-        bounds: Rectangle,
-    },
-}
-
-impl CubeTreeNode {
     const MIN_SIZE: Scalar = 24.0;
     const THRESHOLD: Scalar = 1.5;
-
-    pub fn new(half_size: Scalar, face: Axis) -> Self {
-        let mut node = Self::Leaf {
-            collider: false,
-            half_size,
-            face,
-            bounds: Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(half_size)),
-        };
-        node.subdivide();
-        node
+    
+    pub fn new(radius: Scalar) -> Self {
+        Self {
+            radius,
+            faces: Axis::ALL.map(|axis| {
+                (
+                    axis,
+                    QuadTreeNode::new(
+                        Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(radius)),
+                        ChunkData::default(),
+                    ),
+                )
+            }),
+        }
     }
-
-    pub fn bounds(&self) -> Rectangle {
-        match *self {
-            CubeTreeNode::Internal { bounds, .. } => bounds,
-            CubeTreeNode::Leaf { bounds, .. } => bounds,
+    
+    pub fn with_data(radius: Scalar, data: ChunkData) -> Self {
+        Self {
+            radius,
+            faces: Axis::ALL.map(|axis| {
+                (
+                    axis,
+                    QuadTreeNode::new(
+                        Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(radius)),
+                        data,
+                    ),
+                )
+            }),
         }
     }
 
+    pub fn with_subdivisions(radius: Scalar, subdivisions: usize) -> Self {
+        Self {
+            radius,
+            faces: Axis::ALL.map(|axis| {
+                (
+                    axis,
+                    QuadTreeNode::with_subdivisions(
+                        Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(radius)),
+                        ChunkData::default(),
+                        subdivisions,
+                    ),
+                )
+            }),
+        }
+    }
+    
     pub fn insert(&mut self, point: Vector) {
-        match self {
-            CubeTreeNode::Internal {
-                ref mut children, ..
-            } => {
-                for child in children {
-                    child.insert(point);
-                }
-            }
-            CubeTreeNode::Leaf { bounds, .. } => {
+        for axis in Axis::ALL {
+            let mut new_node = QuadTreeNode::new(
+                Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(self.radius)),
+                ChunkData::default(),
+            );
+            new_node.insert_with(|bounds, data| {
                 let size = bounds.size().x;
                 if size <= Self::MIN_SIZE {
-                    self.set_collider(true);
-                    return;
+                    *data = true;
+                    return true;
                 }
-                if self.center().unwrap().distance(point) > size * Self::THRESHOLD {
-                    return;
+                if self.center_on_sphere(axis, bounds).distance(point) > size * Self::THRESHOLD {
+                    return true;
                 }
-                self.subdivide();
-                self.insert(point);
-            }
+                false
+            });
+            self[axis] = new_node;
         }
     }
+    
+    fn center_on_sphere(&self, axis: Axis, bounds: &Rectangle) -> Vector {
+        let (axis_normal, local_x, local_y) = AXIS_COORDINATE_FRAMES[&axis];
+        let size = Vector2::splat(self.radius * 2.0);
 
-    #[inline]
-    pub fn collider(&self) -> bool {
-        match *self {
-            CubeTreeNode::Leaf { collider, .. } => collider,
-            _ => false,
-        }
+        let bounds_min = bounds.min / size;
+        let bounds_max = bounds.max / size;
+
+        let center_pos_on_cube = axis_normal
+            + ((bounds_min.x + bounds_max.x) / 2.0) * local_x
+            + ((bounds_min.y + bounds_max.y) / 2.0) * local_y;
+        
+        unit_cube_to_sphere(center_pos_on_cube) * self.radius
     }
 
-    #[inline]
-    pub fn set_collider(&mut self, value: bool) {
-        if let CubeTreeNode::Leaf { collider, .. } = self {
-            *collider = value
-        };
+    pub fn iter(&self) -> CubeTreeIter {
+        CubeTreeIter::new(self)
     }
 
-    pub fn center(&self) -> Option<Vector> {
-        match *self {
-            CubeTreeNode::Leaf {
-                half_size,
-                face,
-                bounds,
-                ..
-            } => {
-                let [x, y] = bounds.center().to_array();
-                let point_on_cube = match face {
-                    Axis::X => Vector::new(half_size, -y, x),
-                    Axis::Y => Vector::new(x, half_size, -y),
-                    Axis::Z => Vector::new(-y, x, half_size),
-                    Axis::NegX => Vector::new(-half_size, -y, -x),
-                    Axis::NegY => Vector::new(-x, -half_size, -y),
-                    Axis::NegZ => Vector::new(-y, -x, -half_size),
-                };
-                Some(cube_to_sphere(point_on_cube, half_size))
-            }
-            _ => None,
-        }
+    pub unsafe fn iter_mut(&mut self) -> CubeTreeIterMut {
+        CubeTreeIterMut::new(self)
     }
 
-    #[inline]
-    pub fn normal(&self) -> Option<Vector> {
-        self.center().map(|center| center.normalize())
+    pub fn iter_with_capacity<const CAPACITY: usize>(&self) -> CubeTreeIter<CAPACITY> {
+        CubeTreeIter::new(self)
     }
-
-    pub fn gather_children(&self, out: &mut Vec<Self>) {
-        match self {
-            Self::Internal { children, .. } => {
-                for child in children {
-                    child.gather_children(out)
-                }
-            }
-            Self::Leaf { .. } => out.push(self.clone()),
-        }
-    }
-
-    pub fn gather_filtered_children(
-        &self,
-        out: &mut Vec<Self>,
-        mut predicate: impl FnMut(&Self) -> bool,
-    ) {
-        match self {
-            Self::Internal { children, .. } => {
-                for child in children {
-                    child.gather_children(out)
-                }
-            }
-            Self::Leaf { .. } => {
-                if predicate(self) {
-                    out.push(self.clone());
-                }
-            }
-        }
-    }
-
-    pub fn children(&self) -> Vec<Self> {
-        let mut children = Vec::new();
-        self.gather_children(&mut children);
-        children
-    }
-
-    pub fn filtered_children(&self, predicate: impl FnMut(&Self) -> bool) -> Vec<Self> {
-        let mut children = Vec::new();
-        self.gather_filtered_children(&mut children, predicate);
-        children
-    }
-
-    fn subdivide(&mut self) {
-        match self {
-            CubeTreeNode::Leaf {
-                half_size,
-                face,
-                bounds,
-                ..
-            } => {
-                let center = bounds.center();
-                let children = [
-                    // Bottom left
-                    Rectangle::from_corners(bounds.min, center),
-                    // Bottom right
-                    Rectangle::from_corners(
-                        Vector2::new(center.x, bounds.min.y),
-                        Vector2::new(bounds.max.x, center.y),
-                    ),
-                    // Top left
-                    Rectangle::from_corners(
-                        Vector2::new(bounds.min.x, center.y),
-                        Vector2::new(center.x, bounds.max.y),
-                    ),
-                    // Top right
-                    Rectangle::from_corners(center, bounds.max),
-                ]
-                .map(|child_bounds| {
-                    Box::new(Self::Leaf {
-                        collider: false,
-                        half_size: *half_size,
-                        face: *face,
-                        bounds: child_bounds,
-                    })
-                });
-                *self = CubeTreeNode::Internal {
-                    bounds: *bounds,
-                    children,
-                }
-            }
-            _ => panic!("cannot subdivide an internal node"),
-        };
+    pub unsafe fn iter_mut_with_capacity<const CAPACITY: usize>(&mut self) -> CubeTreeIterMut<CAPACITY> {
+        CubeTreeIterMut::new(self)
     }
 }
 
-impl From<CubeTreeNode> for Rectangle {
-    fn from(value: CubeTreeNode) -> Self {
-        match value {
-            CubeTreeNode::Internal { bounds, .. } => bounds,
-            CubeTreeNode::Leaf { bounds, .. } => bounds,
+impl Index<Axis> for CubeTree {
+    type Output = QuadTreeNode<ChunkData>;
+
+    fn index(&self, index: Axis) -> &Self::Output {
+        // Logic to find and return a reference to the element
+        // at the specified index
+        &self.faces[index as usize].1
+    }
+}
+
+// Implement IndexMut trait to enable mutable indexing
+impl IndexMut<Axis> for CubeTree {
+    fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
+        // Logic to find and return a mutable reference to the element
+        // at the specified index
+        &mut self.faces[index as usize].1
+    }
+}
+
+pub struct CubeTreeIter<'a, const CAPACITY: usize = 1024> {
+    index: usize,
+    faces: &'a [(Axis, QuadTreeNode<ChunkData>); 6],
+    chunk_iter: QuadTreeLeafIter<'a, ChunkData, CAPACITY>,
+}
+
+impl<'a, const CAPACITY: usize> CubeTreeIter<'a, CAPACITY> {
+    pub fn new(cube_tree: &'a CubeTree) -> Self {
+        Self {
+            index: 0,
+            faces: &cube_tree.faces,
+            chunk_iter: QuadTreeLeafIter::new(&cube_tree.faces[0].1),
         }
     }
 }
 
-impl PartialEq for CubeTreeNode {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            Self::Leaf { bounds, .. } => match other {
-                CubeTreeNode::Leaf {
-                    bounds: other_bounds,
-                    ..
-                } => bounds == other_bounds,
-                _ => false,
-            },
-            Self::Internal {
-                bounds, children, ..
-            } => match other {
-                CubeTreeNode::Internal {
-                    bounds: other_bounds,
-                    children: other_children,
-                    ..
-                } => {
-                    if bounds != other_bounds {
-                        return false;
-                    }
-                    for (child, other_child) in children.iter().zip(other_children) {
-                        if child.bounds() != other_child.bounds() {
-                            return false;
-                        }
-                    }
-                    true
+impl<'a, const CAPACITY: usize> Iterator for CubeTreeIter<'a, CAPACITY> {
+    type Item = (Axis, &'a Rectangle, &'a ChunkData);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((bounds, data)) = self.chunk_iter.next() {
+            Some((self.faces[self.index].0, bounds, data))
+        } else if self.index < self.faces.len() {
+            self.index += 1;
+            self.chunk_iter = QuadTreeLeafIter::new(&self.faces[self.index].1);
+            self.next()
+        } else {
+            None
+        }
+    }
+}
+
+pub struct CubeTreeIterMut<'a, const CAPACITY: usize = 1024> {
+    index: usize,
+    faces: &'a mut [(Axis, QuadTreeNode<ChunkData>)],
+    chunk_iter: Option<QuadTreeLeafIterMut<'a, ChunkData, CAPACITY>>,
+}
+
+impl<'a, const CAPACITY: usize> CubeTreeIterMut<'a, CAPACITY> {
+    pub unsafe fn new(cube_tree: &'a mut CubeTree) -> Self {
+        Self {
+            index: 0,
+            faces: cube_tree.faces.as_mut_slice(),
+            chunk_iter: None,
+        }
+    }
+}
+
+
+/// This implementation is kind of sketchy, use on your own risk
+impl<'a, const CAPACITY: usize> Iterator for CubeTreeIterMut<'a, CAPACITY> {
+    type Item = (Axis, &'a mut Rectangle, &'a mut ChunkData);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            // If we have a current iterator, try to get the next item
+            if let Some(iter) = &mut self.chunk_iter {
+                if let Some((bounds, data)) = iter.next() {
+                    let axis = self.faces[self.index].0;
+                    return Some((axis, bounds, data));
+                } else {
+                    // This iterator is exhausted, move to the next face
+                    self.index += 1;
+                    self.chunk_iter = None;
                 }
-                _ => false,
-            },
+            } else {
+                if self.index >= self.faces.len() {
+                    return None;
+                }
+
+                // Create a new iterator for the current face
+                // This is tricky because of lifetimes - we need to split the borrow
+                let faces_ptr = self.faces.as_mut_ptr();
+
+                // SAFETY: We know self.index is in bounds, and we're only borrowing one element
+                unsafe {
+                    let face = &mut *faces_ptr.add(self.index);
+                    self.chunk_iter = Some(QuadTreeLeafIterMut::new(&mut face.1));
+                }
+            }
         }
-    }
-}
-
-impl std::fmt::Debug for CubeTreeNode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CubeTreeNode::Internal { bounds, .. } => f.write_fmt(format_args!(
-                "QuadTreeNode::Internal {{ (({},{}), ({},{}))}}\n",
-                bounds.max.x, bounds.max.y, bounds.min.x, bounds.min.y
-            )),
-            CubeTreeNode::Leaf { bounds, .. } => f.write_fmt(format_args!(
-                "QuadTreeNode::Leaf {{ (({},{}), ({},{})) }}\n",
-                bounds.max.x, bounds.max.y, bounds.min.x, bounds.min.y
-            )),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_insert() {
-        let radius = 100.0;
-        let mut quad_cube = CubeTree::new(radius);
-        quad_cube.insert(Vector::Z * radius * 2.0);
-
-        let mut children = Vec::new();
-        let z_face = quad_cube.get(Axis::Z);
-        z_face.gather_children(&mut children);
-
-        let expected = vec![];
-
-        assert_eq!(children, expected);
     }
 }

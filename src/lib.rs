@@ -13,13 +13,13 @@ use bevy::prelude::*;
 use big_space::camera::CameraController;
 use big_space::{camera::CameraControllerPlugin, prelude::*};
 
+use constants::terrain::CHUNK_SUBDIVISIONS;
 use materials::GlobalMaterialsPlugin;
 use plugins::{
     terrain::body::{Body, BodyPreset},
     AssetLoaderPlugin, PhysicsPlugin, PlayerPlugin, TerrainPlugin,
 };
 use state::GameState;
-use constants::terrain::CHUNK_SUBDIVISIONS;
 
 #[cfg(feature = "f64")]
 pub type Precision = i64;
@@ -61,13 +61,15 @@ pub struct OrbitCamera;
 
 fn setup(mut commands: Commands) {
     commands.spawn_big_space_default(|root: &mut GridCommands<Precision>| {
+        root.insert(Name::new("System"));
         root.with_grid_default(|planet| {
             let body = Body::from_preset(BodyPreset::EARTH);
-            let camera_pos = Vector::Y * (body.radius + 10.0);
+            let camera_pos = Vector::Y * (body.radius * 2.0);
             let (camera_cell, camera_translation) = planet.grid().translation_to_grid(camera_pos);
             planet.insert((body, Name::new("Planet")));
 
             planet.spawn_spatial((
+                OrbitCamera,
                 Camera3d::default(),
                 Transform::from_translation(camera_translation),
                 camera_cell,

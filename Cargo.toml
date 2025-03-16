@@ -72,7 +72,7 @@ avian3d = { version = "0.2" , default-features = false, features = [
 ] }
 bevy_asset_loader = { version = "0.22" }
 bevy_kira_audio = { version = "0.22" }
-bevy-inspector-egui = "0.29"
+bevy-inspector-egui = "0.30"
 bevy_panorbit_camera = { version = "0.23", features = ["bevy_egui"] }
 bevy-tnua = { version = "0.21.0" }
 bevy-tnua-avian3d = { version = "0.2.0", default-features = false }
@@ -83,6 +83,9 @@ image = { version = "0.25", default-features = false }
 log = { version = "0.4", features = ["max_level_trace", "release_max_level_warn"] }
 thiserror = "2"
 winit = { version = "0.30", default-features = false }
+smallvec = { version = "1.14.0", features = ["const_generics", "const_new"] }
+num-traits = "0.2.19"
+lazy_static = "1.5.0"
 
 [build-dependencies]
 embed-resource = "3.0.1"

@@ -1,6 +1,7 @@
 use avian3d::math::Vector;
 use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
+use bevy_tnua::TnuaToggle;
 use big_space::prelude::*;
 
 use procedural_planet::{
@@ -19,7 +20,7 @@ fn main() {
         .add_plugins(GlobalMaterialsPlugin)
         .add_plugins(PhysicsPlugin::default())
         .add_plugins(BigSpacePlugin::<Precision>::default())
-        .add_plugins(TerrainPlugin::<Player>::default())
+        .add_plugins(TerrainPlugin::<Player, 6>::default())
         .add_plugins(PlayerPlugin)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(AmbientLight {
@@ -60,10 +61,15 @@ fn setup(mut commands: Commands) {
     commands.spawn_big_space_default(|root: &mut GridCommands<Precision>| {
         root.with_grid_default(|planet| {
             let body = Body::from_preset(BodyPreset::MOON);
-            let player_pos = Vector::Y * (body.radius + 20.0);
+            let player_pos = Vector::Y * (body.radius + 10000.0);
             let (player_cell, player_pos) = planet.grid().translation_to_grid(player_pos);
             planet.insert((body, Name::new("Planet")));
-            planet.spawn_spatial((Player, Transform::from_translation(player_pos), player_cell));
+            planet.spawn_spatial((
+                Player,
+                Transform::from_translation(player_pos),
+                player_cell,
+                TnuaToggle::Disabled,
+            ));
         });
     });
 }
