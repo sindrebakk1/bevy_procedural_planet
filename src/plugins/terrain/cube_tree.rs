@@ -2,12 +2,12 @@ use avian3d::math::{Scalar, Vector, Vector2};
 use bevy::prelude::*;
 use std::ops::{Index, IndexMut};
 
-use crate::math::quad_tree::{Quadrant, QuadTreeLeafIterMut};
+use crate::math::quad_tree::{QuadTreeLeafIterMut, Quadrant};
 use crate::math::{
     quad_tree::{QuadTreeLeafIter, QuadTreeNode},
     Rectangle,
 };
-use crate::plugins::terrain::helpers::{center_on_sphere};
+use crate::plugins::terrain::helpers::center_on_sphere;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 #[repr(u8)]
@@ -56,16 +56,15 @@ impl Axis {
 impl From<u16> for Axis {
     fn from(value: u16) -> Self {
         match value {
-             0 => Axis::X,
-             1 => Axis::Y,
-             2 => Axis::Z,
-             3 => Axis::NegX,
-             4 => Axis::NegY,
-             5 => Axis::NegZ,
-            _ => panic!("invalid face")
+            0 => Axis::X,
+            1 => Axis::Y,
+            2 => Axis::Z,
+            3 => Axis::NegX,
+            4 => Axis::NegY,
+            5 => Axis::NegZ,
+            _ => panic!("invalid face"),
         }
     }
-
 }
 
 impl From<Axis> for Dir3 {
@@ -201,10 +200,17 @@ pub struct ChunkData {
 }
 
 impl ChunkData {
-    pub fn new(axis: Axis, quadrant: Quadrant, collider: bool, depth: u8, radius: Scalar, bounds: &Rectangle) -> Self {
+    pub fn new(
+        axis: Axis,
+        quadrant: Quadrant,
+        collider: bool,
+        depth: u8,
+        radius: Scalar,
+        bounds: &Rectangle,
+    ) -> Self {
         Self {
             center: center_on_sphere(axis, radius, bounds),
-            hash: ChunkHash::new(axis, quadrant, collider, depth)
+            hash: ChunkHash::new(axis, quadrant, collider, depth),
         }
     }
 }
@@ -228,10 +234,12 @@ impl CubeTree {
         Self {
             subdivisions: 0,
             radius,
-            faces: Axis::ALL.map(|axis| CubeTreeNode::new(
-                bounds,
-                ChunkData::new(axis, Quadrant::ROOT, false, 0, radius, &bounds),
-            )),
+            faces: Axis::ALL.map(|axis| {
+                CubeTreeNode::new(
+                    bounds,
+                    ChunkData::new(axis, Quadrant::ROOT, false, 0, radius, &bounds),
+                )
+            }),
         }
     }
 
@@ -260,18 +268,33 @@ impl CubeTree {
                 bounds,
                 ChunkData::new(axis, Quadrant::ROOT, false, 0, self.radius, &bounds),
             );
-            new_node.subdivide_recursive_with(self.subdivisions, |quadrant, depth, bounds, data| {
-                ChunkData::new(axis, quadrant, false, depth as u8, self.radius, bounds)
-            });;
-            new_node.insert_with(|bounds, data| {
-                let size = bounds.size().x;
-                if size <= Self::MIN_SIZE || data.center.distance(point) > size * Self::THRESHOLD {
-                    return true;
-                }
-                false
-            }, |quadrant, bounds, data| {
-                ChunkData::new(axis, quadrant, false, data.hash.depth() + 1, self.radius, bounds)
-            });
+            new_node.subdivide_recursive_with(
+                self.subdivisions,
+                |quadrant, depth, bounds, data| {
+                    ChunkData::new(axis, quadrant, false, depth as u8, self.radius, bounds)
+                },
+            );
+            new_node.insert_with(
+                |bounds, data| {
+                    let size = bounds.size().x;
+                    if size <= Self::MIN_SIZE
+                        || data.center.distance(point) > size * Self::THRESHOLD
+                    {
+                        return true;
+                    }
+                    false
+                },
+                |quadrant, bounds, data| {
+                    ChunkData::new(
+                        axis,
+                        quadrant,
+                        false,
+                        data.hash.depth() + 1,
+                        self.radius,
+                        bounds,
+                    )
+                },
+            );
             self[axis] = new_node;
         }
     }

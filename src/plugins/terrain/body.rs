@@ -1,3 +1,14 @@
+use super::{
+    cube_tree::{Axis, CubeTree},
+    material::{TerrainMaterial, TerrainMaterials},
+    GenerateMeshes,
+};
+use crate::plugins::terrain::cube_tree::ChunkHash;
+use crate::{
+    constants::physics::{EARTH_DIAMETER_M, EARTH_MASS_KG, MOON_DIAMETER_M, MOON_MASS_KG},
+    math::Rectangle,
+    plugins::physics::GravityField,
+};
 use avian3d::math::{Scalar, Vector};
 use bevy::{
     ecs::{component::ComponentId, world::DeferredWorld},
@@ -7,17 +18,6 @@ use bevy::{
 use bevy_inspector_egui::inspector_options::{InspectorOptions, ReflectInspectorOptions};
 use std::convert::Into;
 use std::ops::{Deref, DerefMut};
-use super::{
-    cube_tree::{Axis, CubeTree},
-    material::{TerrainMaterial, TerrainMaterials},
-    GenerateMeshes,
-};
-use crate::{
-    constants::physics::{EARTH_DIAMETER_M, EARTH_MASS_KG, MOON_DIAMETER_M, MOON_MASS_KG},
-    math::Rectangle,
-    plugins::physics::GravityField,
-};
-use crate::plugins::terrain::cube_tree::ChunkHash;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct BodyPreset {
@@ -84,11 +84,11 @@ impl Body {
     }
 }
 fn on_add_body(mut world: DeferredWorld, entity: Entity, id: ComponentId) {
-    let material_handle = world
-        .get_resource::<TerrainMaterials>()
-        .expect("expected TerrainMaterials resource to exist")
-        .standard
-        .clone();
+    // let material_handle = world
+    //     .get_resource::<TerrainMaterials>()
+    //     .expect("expected TerrainMaterials resource to exist")
+    //     .standard
+    //     .clone();
 
     debug_assert!(world.get_by_id(entity, id).is_some());
 
@@ -104,12 +104,11 @@ fn on_add_body(mut world: DeferredWorld, entity: Entity, id: ComponentId) {
         .entity(entity)
         .insert((
             body.name(),
-            TerrainMaterial::Standard(material_handle),
+            // TerrainMaterial::Standard(material_handle),
             CubeTree::new(body.radius),
             GravityField::radial_from_mass(body.mass),
-            Radius(body.radius),
-        ))
-        .trigger(GenerateMeshes(Vector::MAX));
+        ));
+        // .trigger(GenerateMeshes(Vector::MAX));
 
     #[cfg(not(debug_assertions))]
     world

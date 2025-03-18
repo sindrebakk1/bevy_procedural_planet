@@ -1,12 +1,12 @@
 #![allow(unused)]
 
+use super::cube_tree::Axis;
+use crate::math::Rectangle;
 use avian3d::math::{Scalar, Vector, Vector2, PI};
 use avian3d::parry::na::SimdComplexField;
 use bevy::math::Vec3Swizzles;
 use bevy::utils::HashMap;
 use lazy_static::lazy_static;
-use crate::math::Rectangle;
-use super::cube_tree::Axis;
 
 lazy_static! {
     pub static ref AXIS_COORDINATE_FRAMES: HashMap<Axis, (Vector, Vector, Vector)> = {

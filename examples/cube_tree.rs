@@ -9,9 +9,7 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use procedural_planet::plugins::terrain::cube_tree::CubeTree;
 use procedural_planet::{
     materials::GlobalMaterialsPlugin,
-    plugins::{
-        terrain::{cube_tree::Axis, mesh::ChunkMeshBuilder},
-    },
+    plugins::terrain::{cube_tree::Axis, mesh::ChunkMeshBuilder},
 };
 
 const RADIUS: Scalar = 200.0;
@@ -61,7 +59,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let mut tree = CubeTree::with_subdivisions(RADIUS, 1);
-    tree.insert(Axis::Z * RADIUS);
+    tree.insert(Axis::NegY * RADIUS);
     let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(RADIUS);
     let materials = Axis::ALL.map(|axis| {
         #[cfg(feature = "f64")]

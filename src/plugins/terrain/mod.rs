@@ -2,13 +2,13 @@
 
 use avian3d::math::{AdjustPrecision, Scalar};
 use avian3d::{math::Vector, prelude::Collider};
+use bevy::utils::HashMap;
 use bevy::{
     ecs::world::CommandQueue,
     prelude::*,
     tasks::{block_on, poll_once, AsyncComputeTaskPool, Task},
     utils::HashSet,
 };
-use bevy::utils::HashMap;
 use big_space::grid::Grid;
 use big_space::prelude::GridCell;
 
@@ -23,8 +23,8 @@ mod debug;
 
 pub use body::{Body, BodyPreset, Radius};
 
-use crate::Precision;
 use crate::math::Rectangle;
+use crate::Precision;
 
 use body::{Chunk, ChunkCache};
 use cube_tree::{ChunkData, ChunkHash, CubeTree};
@@ -145,9 +145,11 @@ fn generate_meshes<const SUBDIVISIONS: usize>(
     let target_position = trigger.0;
     let thread_pool = AsyncComputeTaskPool::get();
 
-    for (cube_tree, grid, grid_cell, transform, radius, mut chunk_cache) in planet_query.iter_mut() {
+    for (cube_tree, grid, grid_cell, transform, radius, mut chunk_cache) in planet_query.iter_mut()
+    {
         let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(radius.0);
-        let mut hash_set: HashSet<ChunkHash> = HashSet::from_iter(cube_tree.iter().map(|(_, data)| data.hash));
+        let mut hash_set: HashSet<ChunkHash> =
+            HashSet::from_iter(cube_tree.iter().map(|(_, data)| data.hash));
 
         for (_, entity) in chunk_cache.extract_if(|bounds, _| !hash_set.contains(bounds)) {
             commands.entity(entity).insert(DespawnChunk);
@@ -162,10 +164,13 @@ fn generate_meshes<const SUBDIVISIONS: usize>(
                 continue;
             }
 
-            let (grid_cell, translation) =
-                grid.translation_to_grid(data.center - planet_pos);
+            let (grid_cell, translation) = grid.translation_to_grid(data.center - planet_pos);
             let chunk_entity = commands
-                .spawn((grid_cell, Transform::from_translation(translation), Name::new(format!("{:?}", data.hash.values()))))
+                .spawn((
+                    grid_cell,
+                    Transform::from_translation(translation),
+                    Name::new(format!("{:?}", data.hash.values())),
+                ))
                 .set_parent(entity)
                 .insert(Chunk)
                 .id();
@@ -190,9 +195,7 @@ fn generate_meshes<const SUBDIVISIONS: usize>(
 
                     if let Ok(mut entity_mut) = world.get_entity_mut(chunk_entity) {
                         match collider {
-                            Some(collider) => {
-                                entity_mut.insert((collider, Mesh3d(mesh_handle)))
-                            }
+                            Some(collider) => entity_mut.insert((collider, Mesh3d(mesh_handle))),
                             None => entity_mut.insert(Mesh3d(mesh_handle)),
                         };
                     }

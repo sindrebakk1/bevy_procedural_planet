@@ -1,22 +1,22 @@
 use super::{
     cube_tree::Axis,
-    helpers::{AXIS_COORDINATE_FRAMES, spherical_uv, unit_cube_to_sphere},
+    helpers::{spherical_uv, unit_cube_to_sphere, AXIS_COORDINATE_FRAMES},
 };
+use crate::math::quad_tree::QuadTreeNode;
 use crate::math::Rectangle;
+use crate::plugins::terrain::cube_tree::{ChunkData, CubeTreeNode};
 use avian3d::math::{Scalar, Vector, Vector2};
 use bevy::{
     asset::RenderAssetUsages,
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
-use crate::math::quad_tree::QuadTreeNode;
-use crate::plugins::terrain::cube_tree::{ChunkData, CubeTreeNode};
 
 #[derive(Clone, Copy, Debug)]
 pub struct ChunkMeshBuilder<const SUBDIVISIONS: usize>
 where
     [(); (SUBDIVISIONS + 2).pow(2)]:,
-    [(); (SUBDIVISIONS + 1).pow(2) * 6]:
+    [(); (SUBDIVISIONS + 1).pow(2) * 6]:,
 {
     radius: Scalar,
     size: Vector2,
@@ -140,9 +140,9 @@ where
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-            .with_inserted_indices(Indices::U32(Vec::from(indices)))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, Vec::from(positions))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, Vec::from(normals))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, Vec::from(uvs))
+        .with_inserted_indices(Indices::U32(Vec::from(indices)))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, Vec::from(positions))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, Vec::from(normals))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, Vec::from(uvs))
     }
 }

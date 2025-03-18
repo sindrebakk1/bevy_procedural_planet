@@ -25,7 +25,7 @@ impl From<u16> for Quadrant {
             2 => Quadrant::SE,
             3 => Quadrant::NW,
             4 => Quadrant::NE,
-            _ => panic!("invalid quadrant")
+            _ => panic!("invalid quadrant"),
         }
     }
 }
@@ -83,9 +83,7 @@ impl<T: Clone> QuadTreeNode<T> {
         F: Fn(&Rectangle, &T) -> bool,
     {
         match self {
-            QuadTreeNode::Internal {
-                children, ..
-            } => {
+            QuadTreeNode::Internal { children, .. } => {
                 for child in children {
                     child.insert_impl(predicate);
                 }
@@ -114,9 +112,7 @@ impl<T: Clone> QuadTreeNode<T> {
         F: Fn(Quadrant, &Rectangle, &T) -> T,
     {
         match self {
-            QuadTreeNode::Internal {
-                children, ..
-            } => {
+            QuadTreeNode::Internal { children, .. } => {
                 for child in children {
                     child.insert_with_impl(predicate, create_data);
                 }
@@ -125,7 +121,8 @@ impl<T: Clone> QuadTreeNode<T> {
                 if predicate(&*bounds, &*data) {
                     return;
                 }
-                self.subdivided_with(create_data).insert_with_impl(predicate, create_data);
+                self.subdivided_with(create_data)
+                    .insert_with_impl(predicate, create_data);
             }
         }
     }
@@ -248,15 +245,21 @@ impl<T: Clone> QuadTreeNode<T> {
             // Bottom-left
             (Quadrant::SW, Rectangle::from_corners(bounds.min, center)),
             // Bottom-right
-            (Quadrant::SE, Rectangle::from_corners(
-                Vector2::new(center.x, bounds.min.y),
-                Vector2::new(bounds.max.x, center.y),
-            )),
+            (
+                Quadrant::SE,
+                Rectangle::from_corners(
+                    Vector2::new(center.x, bounds.min.y),
+                    Vector2::new(bounds.max.x, center.y),
+                ),
+            ),
             // Top-left
-            (Quadrant::NW, Rectangle::from_corners(
-                Vector2::new(bounds.min.x, center.y),
-                Vector2::new(center.x, bounds.max.y),
-            )),
+            (
+                Quadrant::NW,
+                Rectangle::from_corners(
+                    Vector2::new(bounds.min.x, center.y),
+                    Vector2::new(center.x, bounds.max.y),
+                ),
+            ),
             // Top-right
             (Quadrant::NE, Rectangle::from_corners(center, bounds.max)),
         ]

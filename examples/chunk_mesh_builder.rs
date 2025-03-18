@@ -6,15 +6,13 @@ use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use procedural_planet::math::quad_tree::Quadrant;
+use procedural_planet::plugins::terrain::cube_tree::ChunkData;
 use procedural_planet::{
     materials::GlobalMaterialsPlugin,
     math::Rectangle,
-    plugins::{
-        terrain::{cube_tree::Axis, mesh::ChunkMeshBuilder},
-    },
+    plugins::terrain::{cube_tree::Axis, mesh::ChunkMeshBuilder},
 };
-use procedural_planet::math::quad_tree::Quadrant;
-use procedural_planet::plugins::terrain::cube_tree::ChunkData;
 
 fn main() {
     let mut app = App::new();
@@ -48,7 +46,7 @@ fn setup(
         let bounds = Rectangle::from_corners(Vector2::new(-10.0, -10.0), Vector2::new(10.0, 10.0));
         let mesh = mes_builder.build(
             &bounds,
-            &ChunkData::new(axis, Quadrant::ROOT, false, 0, 10.0, &bounds)
+            &ChunkData::new(axis, Quadrant::ROOT, false, 0, 10.0, &bounds),
         );
         let mesh_handle = meshes.add(mesh);
         let material_handle = materials.add(StandardMaterial::from_color(Color::srgb_from_array(
