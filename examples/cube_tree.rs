@@ -1,19 +1,29 @@
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+
 use avian3d::math::Scalar;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use procedural_planet::plugins::terrain::cube_tree::CubeTree;
 use procedural_planet::{
     materials::GlobalMaterialsPlugin,
-    plugins::{physics::GlobalGravity, terrain::{mesh::ChunkMeshBuilder, cube_tree::Axis}},
+    plugins::{
+        terrain::{cube_tree::Axis, mesh::ChunkMeshBuilder},
+    },
 };
+
+const RADIUS: Scalar = 200.0;
+const SUBDIVISIONS: usize = 5;
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
+        .add_plugins(WorldInspectorPlugin::default())
+        .add_plugins(PanOrbitCameraPlugin)
         .add_plugins(GlobalMaterialsPlugin)
         .add_plugins(WireframePlugin)
-        .add_plugins(PanOrbitCameraPlugin)
         .insert_resource(WireframeConfig {
             global: true,
             default_color: Default::default(),
@@ -23,7 +33,6 @@ fn main() {
             color: Color::WHITE,
             brightness: 200.0,
         })
-        .insert_resource(GlobalGravity::ZERO)
         .add_systems(Startup, setup);
 
     app.run();
@@ -51,26 +60,26 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    const RADIUS: Scalar = 10.0;
-    let tree = CubeTree::with_subdivisions(RADIUS, 1);
-    let mesh_builder = ChunkMeshBuilder::<5>::new(RADIUS);
+    let mut tree = CubeTree::with_subdivisions(RADIUS, 1);
+    tree.insert(Axis::Z * RADIUS);
+    let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(RADIUS);
     let materials = Axis::ALL.map(|axis| {
         #[cfg(feature = "f64")]
-        let material =
-            StandardMaterial::from_color(Color::srgb_from_array(axis.to_array_f32()));
+        let material = StandardMaterial::from_color(Color::srgb_from_array(axis.to_array_f32()));
 
         #[cfg(not(feature = "f64"))]
         let material = StandardMaterial::from_color(Color::srgb_from_array(axis.to_array()));
-        
+
         materials.add(material)
     });
-    let bundles = tree.iter()
-        .map(|(axis, bounds, _)| {
-            let (mesh, position) = mesh_builder.build(axis, bounds);
+    let bundles = tree
+        .iter()
+        .map(|(bounds, data)| {
+            let axis = data.hash.axis();
             (
-                meshes.add(mesh),
+                meshes.add(mesh_builder.build(bounds, data)),
                 materials[axis as usize].clone(),
-                position.as_vec3(),
+                data.center.as_vec3(),
             )
         })
         .map(|(mesh_handle, material_handle, translation)| {
@@ -79,12 +88,8 @@ fn setup(
         .collect::<Vec<ChunkBundle>>();
 
     commands.spawn_batch(bundles);
-    commands.spawn((
-        PanOrbitCamera {
-            radius: Some(20.0),
-            ..Default::default()
-        },
-        Camera::default(),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -20.0)).looking_to(Dir3::Z, Dir3::Y),
-    ));
+    commands.spawn(PanOrbitCamera {
+        radius: Some((RADIUS * 3.0) as f32),
+        ..Default::default()
+    });
 }

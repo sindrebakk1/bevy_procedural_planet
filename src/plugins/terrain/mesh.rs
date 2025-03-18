@@ -1,21 +1,26 @@
 use super::{
     cube_tree::Axis,
-    helpers::{spherical_uv, unit_cube_to_sphere},
+    helpers::{AXIS_COORDINATE_FRAMES, spherical_uv, unit_cube_to_sphere},
 };
 use crate::math::Rectangle;
-use crate::plugins::terrain::cube_tree::AXIS_COORDINATE_FRAMES;
 use avian3d::math::{Scalar, Vector, Vector2};
 use bevy::{
     asset::RenderAssetUsages,
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
+use crate::math::quad_tree::QuadTreeNode;
+use crate::plugins::terrain::cube_tree::{ChunkData, CubeTreeNode};
 
 #[derive(Clone, Copy, Debug)]
-pub struct ChunkMeshBuilder<const SUBDIVISIONS: usize>(Scalar)
+pub struct ChunkMeshBuilder<const SUBDIVISIONS: usize>
 where
     [(); (SUBDIVISIONS + 2).pow(2)]:,
-    [(); (SUBDIVISIONS + 1).pow(2) * 6]:;
+    [(); (SUBDIVISIONS + 1).pow(2) * 6]:
+{
+    radius: Scalar,
+    size: Vector2,
+}
 
 #[allow(unused)]
 impl<const SUBDIVISIONS: usize> ChunkMeshBuilder<SUBDIVISIONS>
@@ -26,10 +31,13 @@ where
     const VERTEX_COUNT: usize = SUBDIVISIONS + 2;
 
     pub fn new(radius: Scalar) -> Self {
-        Self(radius)
+        Self {
+            radius,
+            size: Vector2::splat(radius * 2.0),
+        }
     }
 
-    pub fn build(&self, axis: Axis, bounds: &Rectangle) -> (Mesh, Vector) {
+    pub fn build(&self, bounds: &Rectangle, chunk_data: &ChunkData) -> Mesh {
         let mut positions: [[f32; 3]; (SUBDIVISIONS + 2).pow(2)] =
             [[0.0; 3]; (SUBDIVISIONS + 2).pow(2)];
         let mut normals: [[f32; 3]; (SUBDIVISIONS + 2).pow(2)] =
@@ -37,18 +45,11 @@ where
         let mut uvs: [[f32; 2]; (SUBDIVISIONS + 2).pow(2)] = [[0.0; 2]; (SUBDIVISIONS + 2).pow(2)];
         let mut indices: [u32; (SUBDIVISIONS + 1).pow(2) * 6] = [0; (SUBDIVISIONS + 1).pow(2) * 6];
 
+        let axis = chunk_data.hash.axis();
         let (axis_normal, local_x, local_y) = AXIS_COORDINATE_FRAMES[&axis];
-        let size = Vector2::splat(self.0 * 2.0);
 
-        let bounds_min = bounds.min / size;
-        let bounds_max = bounds.max / size;
-
-        let center_pos_on_cube = axis_normal
-            + ((bounds_min.x + bounds_max.x) / 2.0) * local_x
-            + ((bounds_min.y + bounds_max.y) / 2.0) * local_y;
-
-        // True center of the current chunk mesh in relation to the center of the planet
-        let center = unit_cube_to_sphere(center_pos_on_cube) * self.0;
+        let bounds_min = bounds.min / self.size;
+        let bounds_max = bounds.max / self.size;
 
         let step_x = (bounds_max.x - bounds_min.x) / (Self::VERTEX_COUNT - 1) as Scalar;
         let step_y = (bounds_max.y - bounds_min.y) / (Self::VERTEX_COUNT - 1) as Scalar;
@@ -62,14 +63,13 @@ where
 
                 let pos_on_cube = axis_normal + p_x * 2.0 * local_x + p_y * 2.0 * local_y;
                 let normal = unit_cube_to_sphere(pos_on_cube);
-
-                let pos = normal * self.0;
+                let pos = normal * self.radius;
 
                 let index = x + (y * Self::VERTEX_COUNT);
 
                 #[cfg(feature = "f64")]
                 {
-                    positions[index] = (pos - center).as_vec3().to_array();
+                    positions[index] = (pos - chunk_data.center).as_vec3().to_array();
                     normals[index] = normal.as_vec3().to_array();
                     uvs[index] = spherical_uv(pos).as_vec2().to_array();
                 }
@@ -136,16 +136,13 @@ where
 
         info_once!("uvs: {uvs:?}");
 
-        (
-            Mesh::new(
-                PrimitiveTopology::TriangleList,
-                RenderAssetUsages::default(),
-            )
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
             .with_inserted_indices(Indices::U32(Vec::from(indices)))
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, Vec::from(positions))
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, Vec::from(normals))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, Vec::from(uvs)),
-            center,
-        )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, Vec::from(uvs))
     }
 }

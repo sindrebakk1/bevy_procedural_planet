@@ -3,6 +3,33 @@ use smallvec::{smallvec, SmallVec};
 
 use super::Rectangle;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[repr(u8)]
+pub enum Quadrant {
+    ROOT = 0,
+    SW = 1,
+    SE = 2,
+    NW = 3,
+    NE = 4,
+}
+
+impl Quadrant {
+    pub const ALL: [Self; 4] = [Quadrant::SW, Quadrant::SE, Quadrant::NW, Quadrant::NE];
+}
+
+impl From<u16> for Quadrant {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => Quadrant::ROOT,
+            1 => Quadrant::SW,
+            2 => Quadrant::SE,
+            3 => Quadrant::NW,
+            4 => Quadrant::NE,
+            _ => panic!("invalid quadrant")
+        }
+    }
+}
+
 /// A memory-efficient quadtree node that can either be an internal node with four children
 /// or a leaf node containing generic data that implements Copy + Clone.
 #[derive(Clone)]
@@ -28,7 +55,7 @@ impl<T: Clone> QuadTreeNode<T> {
     pub fn new_subdivided(bounds: Rectangle, data: T) -> Self {
         Self::Internal {
             bounds,
-            children: Self::subdivide_bounds(&bounds).map(|child_bounds| {
+            children: Self::subdivide_bounds(&bounds).map(|(_, child_bounds)| {
                 Box::new(Self::Leaf {
                     bounds: child_bounds,
                     data: data.clone(),
@@ -46,25 +73,25 @@ impl<T: Clone> QuadTreeNode<T> {
 
     pub fn insert<F>(&mut self, predicate: F)
     where
-        F: Fn(&Rectangle) -> bool,
+        F: Fn(&Rectangle, &T) -> bool,
     {
         self.insert_impl(&predicate)
     }
 
     fn insert_impl<F>(&mut self, predicate: &F)
     where
-        F: Fn(&Rectangle) -> bool,
+        F: Fn(&Rectangle, &T) -> bool,
     {
         match self {
             QuadTreeNode::Internal {
-                ref mut children, ..
+                children, ..
             } => {
                 for child in children {
                     child.insert_impl(predicate);
                 }
             }
-            QuadTreeNode::Leaf { bounds, .. } => {
-                if predicate(&*bounds) {
+            QuadTreeNode::Leaf { bounds, data } => {
+                if predicate(&*bounds, &*data) {
                     return;
                 }
                 self.subdivide();
@@ -73,30 +100,32 @@ impl<T: Clone> QuadTreeNode<T> {
         }
     }
 
-    pub fn insert_with<F>(&mut self, mut process_and_predicate: F)
+    pub fn insert_with<P, F>(&mut self, predicate: P, create_data: F)
     where
-        F: FnMut(&Rectangle, &mut T) -> bool,
+        P: Fn(&Rectangle, &T) -> bool,
+        F: Fn(Quadrant, &Rectangle, &T) -> T,
     {
-        self.insert_with_impl(&mut process_and_predicate)
+        self.insert_with_impl(&predicate, &create_data)
     }
 
-    fn insert_with_impl<F>(&mut self, process_and_predicate: &mut F)
+    fn insert_with_impl<P, F>(&mut self, predicate: &P, create_data: &F)
     where
-        F: FnMut(&Rectangle, &mut T) -> bool,
+        P: Fn(&Rectangle, &T) -> bool,
+        F: Fn(Quadrant, &Rectangle, &T) -> T,
     {
         match self {
             QuadTreeNode::Internal {
-                ref mut children, ..
+                children, ..
             } => {
                 for child in children {
-                    child.insert_with_impl(process_and_predicate);
+                    child.insert_with_impl(predicate, create_data);
                 }
             }
             QuadTreeNode::Leaf { bounds, data } => {
-                if process_and_predicate(bounds, data) {
+                if predicate(&*bounds, &*data) {
                     return;
                 }
-                self.subdivided().insert_with_impl(process_and_predicate);
+                self.subdivided_with(create_data).insert_with_impl(predicate, create_data);
             }
         }
     }
@@ -143,7 +172,7 @@ impl<T: Clone> QuadTreeNode<T> {
         if let Self::Leaf { bounds, data } = self {
             *self = Self::Internal {
                 bounds: *bounds,
-                children: Self::subdivide_bounds(bounds).map(|child_bounds| {
+                children: Self::subdivide_bounds(bounds).map(|(_, child_bounds)| {
                     Box::new(Self::Leaf {
                         bounds: child_bounds,
                         data: data.clone(),
@@ -159,7 +188,7 @@ impl<T: Clone> QuadTreeNode<T> {
         if let Self::Leaf { bounds, data } = self {
             *self = Self::Internal {
                 bounds: *bounds,
-                children: Self::subdivide_bounds(bounds).map(|child_bounds| {
+                children: Self::subdivide_bounds(bounds).map(|(_, child_bounds)| {
                     Box::new(Self::Leaf {
                         bounds: child_bounds,
                         data: data.clone(),
@@ -176,15 +205,15 @@ impl<T: Clone> QuadTreeNode<T> {
     /// The provided function is used to create data for each new child.
     pub fn subdivide_with<F>(&mut self, create_data: F)
     where
-        F: Fn(&T, &Rectangle) -> T,
+        F: Fn(Quadrant, &Rectangle, &T) -> T,
     {
         if let Self::Leaf { bounds, data } = self {
             *self = Self::Internal {
                 bounds: *bounds,
-                children: Self::subdivide_bounds(bounds).map(|child_bounds| {
+                children: Self::subdivide_bounds(bounds).map(|(quadrant, child_bounds)| {
                     Box::new(Self::Leaf {
                         bounds: child_bounds,
-                        data: create_data(data, &child_bounds),
+                        data: create_data(quadrant, &child_bounds, data),
                     })
                 }),
             };
@@ -195,15 +224,15 @@ impl<T: Clone> QuadTreeNode<T> {
 
     pub fn subdivided_with<F>(&mut self, create_data: F) -> &mut Self
     where
-        F: Fn(&T, &Rectangle) -> T,
+        F: Fn(Quadrant, &Rectangle, &T) -> T,
     {
         if let Self::Leaf { bounds, data } = self {
             *self = Self::Internal {
                 bounds: *bounds,
-                children: Self::subdivide_bounds(bounds).map(|child_bounds| {
+                children: Self::subdivide_bounds(bounds).map(|(quadrant, child_bounds)| {
                     Box::new(Self::Leaf {
                         bounds: child_bounds,
-                        data: create_data(data, &child_bounds),
+                        data: create_data(quadrant, &child_bounds, data),
                     })
                 }),
             };
@@ -213,23 +242,23 @@ impl<T: Clone> QuadTreeNode<T> {
         }
     }
 
-    fn subdivide_bounds(bounds: &Rectangle) -> [Rectangle; 4] {
+    fn subdivide_bounds(bounds: &Rectangle) -> [(Quadrant, Rectangle); 4] {
         let center = bounds.center();
         [
             // Bottom-left
-            Rectangle::from_corners(bounds.min, center),
+            (Quadrant::SW, Rectangle::from_corners(bounds.min, center)),
             // Bottom-right
-            Rectangle::from_corners(
+            (Quadrant::SE, Rectangle::from_corners(
                 Vector2::new(center.x, bounds.min.y),
                 Vector2::new(bounds.max.x, center.y),
-            ),
+            )),
             // Top-left
-            Rectangle::from_corners(
+            (Quadrant::NW, Rectangle::from_corners(
                 Vector2::new(bounds.min.x, center.y),
                 Vector2::new(center.x, bounds.max.y),
-            ),
+            )),
             // Top-right
-            Rectangle::from_corners(center, bounds.max),
+            (Quadrant::NE, Rectangle::from_corners(center, bounds.max)),
         ]
     }
 
@@ -257,7 +286,7 @@ impl<T: Clone> QuadTreeNode<T> {
     #[inline]
     pub fn subdivide_recursive_with<F>(&mut self, max_depth: usize, create_data: F)
     where
-        F: Fn(&T, &Rectangle, usize) -> T,
+        F: Fn(Quadrant, usize, &Rectangle, &T) -> T,
     {
         self.subdivide_recursive_with_impl(max_depth, 0, &create_data)
     }
@@ -268,19 +297,19 @@ impl<T: Clone> QuadTreeNode<T> {
         current_depth: usize,
         create_data: &F,
     ) where
-        F: Fn(&T, &Rectangle, usize) -> T,
+        F: Fn(Quadrant, usize, &Rectangle, &T) -> T,
     {
         if current_depth >= max_depth {
             return;
         }
 
-        if let Self::Leaf { bounds, data } = self {
+        if let Self::Leaf { bounds, data } = &self {
             *self = Self::Internal {
                 bounds: *bounds,
-                children: Self::subdivide_bounds(bounds).map(|child_bounds| {
+                children: Self::subdivide_bounds(bounds).map(|(quadrant, child_bounds)| {
                     Box::new(Self::Leaf {
                         bounds: child_bounds,
-                        data: create_data(data, &child_bounds, current_depth),
+                        data: create_data(quadrant, current_depth, &child_bounds, data),
                     })
                 }),
             };
@@ -592,7 +621,7 @@ mod tests {
         let mut leaf = QuadTreeNode::new(bounds, 100);
 
         // Custom function that sets the data based on the child's position
-        leaf.subdivide_with(|parent_data, child_bounds| {
+        leaf.subdivide_with(|_, child_bounds, parent_data| {
             let center = child_bounds.center();
             if center.x < 5.0 && center.y < 5.0 {
                 // Bottom-left: parent value
@@ -646,7 +675,7 @@ mod tests {
         let mut root = QuadTreeNode::new(bounds, 42);
 
         // Subdivide to depth 2
-        root.subdivide_recursive_with(2, |_, child_bounds, _| child_bounds.size().x as usize);
+        root.subdivide_recursive_with(2, |_, _, child_bounds, _| child_bounds.size().x as usize);
 
         // Check that we have the right number of leaves (4^2 = 16)
         assert_eq!(

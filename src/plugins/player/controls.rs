@@ -168,7 +168,7 @@ pub fn apply_camera_controls(
 ) {
     let mouse_controls_camera = primary_window_query
         .get_single()
-        .map_or(false, |w| !w.cursor_options.visible);
+        .is_ok_and(|w| !w.cursor_options.visible);
     let total_delta = if mouse_controls_camera {
         mouse_motion.read().map(|event| event.delta).sum()
     } else {

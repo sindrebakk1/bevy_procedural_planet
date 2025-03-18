@@ -1,8 +1,28 @@
 #![allow(unused)]
 
-use super::cube_tree::Axis;
 use avian3d::math::{Scalar, Vector, Vector2, PI};
 use avian3d::parry::na::SimdComplexField;
+use bevy::math::Vec3Swizzles;
+use bevy::utils::HashMap;
+use lazy_static::lazy_static;
+use crate::math::Rectangle;
+use super::cube_tree::Axis;
+
+lazy_static! {
+    pub static ref AXIS_COORDINATE_FRAMES: HashMap<Axis, (Vector, Vector, Vector)> = {
+        let mut m = HashMap::new();
+
+        for axis in Axis::ALL {
+            let axis_normal = Vector::from(axis);
+            let local_y = axis_normal.yzx();
+            let local_x = axis_normal.cross(local_y);
+
+            m.insert(axis, (axis_normal, local_x, local_y));
+        }
+
+        m
+    };
+}
 
 const fn cos_approx(x: Scalar) -> Scalar {
     let x2 = x * x;
@@ -61,4 +81,18 @@ pub fn spherical_uv(pos: Vector) -> Vector2 {
     let u = phi / (2.0 * PI) + 0.5;
     let v = theta / PI;
     Vector2::new(u, v)
+}
+
+pub fn center_on_sphere(axis: Axis, radius: Scalar, bounds: &Rectangle) -> Vector {
+    let (axis_normal, local_x, local_y) = AXIS_COORDINATE_FRAMES[&axis];
+    let size = Vector2::splat(radius * 2.0);
+
+    let bounds_min = bounds.min / size;
+    let bounds_max = bounds.max / size;
+
+    let center_pos_on_cube = axis_normal
+        + ((bounds_min.x + bounds_max.x) / 2.0) * local_x
+        + ((bounds_min.y + bounds_max.y) / 2.0) * local_y;
+
+    unit_cube_to_sphere(center_pos_on_cube) * radius
 }

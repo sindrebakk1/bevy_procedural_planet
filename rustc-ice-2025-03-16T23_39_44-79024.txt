@@ -1,8 +1,0 @@
-delayed bug: Encountered anon const with inference variable args but no error reported
-disabled backtrace
-delayed bug: Encountered anon const with inference variable args but no error reported
-disabled backtrace
-
-
-rustc version: 1.87.0-nightly (4d30011f6 2025-03-15)
-platform: x86_64-pc-windows-msvc
