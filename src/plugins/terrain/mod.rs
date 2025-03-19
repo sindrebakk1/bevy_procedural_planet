@@ -91,35 +91,48 @@ where
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn track_target_position<T: Component>(
     mut commands: Commands,
-    grid_query: Query<&Grid<Precision>>,
-    config: Res<TerrainPluginConfig>,
-    target_query: Query<(&GridCell<Precision>, &Transform, &Parent), With<T>>,
-    mut planet_query: Query<(Entity, &GridCell<Precision>, &Transform, &mut CubeTree), With<Body>>,
+    target_query: Query<(&GridCell<i64>, &Transform, &Parent), With<T>>,
+    mut planet_query: Query<
+        (
+            Entity,
+            &Radius,
+            &Grid<i64>,
+            &GridCell<i64>,
+            &Transform,
+            &mut CubeTree,
+        ),
+        With<Body>,
+    >,
     mut prev_position: Local<Vector>,
 ) {
-    let Ok((cell, pos, parent)) = target_query.get_single() else {
+    let Ok((target_cell, target_transform, parent)) = target_query.get_single() else {
         return;
     };
-    let Ok(grid) = grid_query.get(parent.get()) else {
+    let Ok((entity, radius, grid, planet_cell, planet_transform, mut cube_tree)) =
+        planet_query.get_mut(parent.get())
+    else {
         return;
     };
-    let target_position = grid.grid_position_double(cell, pos).adjust_precision();
-    if target_position.distance(*prev_position) < config.position_threshold {
+    let target_position = grid
+        .grid_position_double(target_cell, target_transform)
+        .adjust_precision();
+    let planet_position = grid
+        .grid_position_double(planet_cell, planet_transform)
+        .adjust_precision();
+    let relative_pos = target_position - planet_position;
+    if target_position.distance(*prev_position)
+        < (target_position.distance(planet_position) - **radius) * 0.01
+    {
         return;
     }
     *prev_position = target_position;
-
-    for (entity, cell, transform, mut cube_tree) in planet_query.iter_mut() {
-        let planet_position = grid.grid_position_double(cell, transform);
-        let relative_pos = target_position - planet_position;
-        info_once!("relative_pos: {relative_pos:?}");
-        cube_tree.insert(relative_pos);
-        commands
-            .entity(entity)
-            .trigger(GenerateMeshes(relative_pos));
-    }
+    cube_tree.insert(relative_pos);
+    commands
+        .entity(entity)
+        .trigger(GenerateMeshes(relative_pos));
 }
 
 #[allow(clippy::type_complexity)]
@@ -141,8 +154,8 @@ fn generate_meshes<const SUBDIVISIONS: usize>(
     [(); (SUBDIVISIONS + 2).pow(2)]:,
     [(); (SUBDIVISIONS + 1).pow(2) * 6]:,
 {
+    // let target_position = trigger.0;
     let entity = trigger.entity();
-    let target_position = trigger.0;
     let thread_pool = AsyncComputeTaskPool::get();
 
     for (cube_tree, grid, grid_cell, transform, radius, mut chunk_cache) in planet_query.iter_mut()
@@ -156,8 +169,6 @@ fn generate_meshes<const SUBDIVISIONS: usize>(
         }
 
         let planet_pos = (grid as &Grid<Precision>).grid_position_double(grid_cell, transform);
-
-        info_once!("planet_pos: {planet_pos:?}");
 
         for (&bounds, &data) in cube_tree.iter() {
             if chunk_cache.contains_key(&data.hash) {

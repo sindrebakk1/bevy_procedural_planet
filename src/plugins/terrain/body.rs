@@ -84,11 +84,11 @@ impl Body {
     }
 }
 fn on_add_body(mut world: DeferredWorld, entity: Entity, id: ComponentId) {
-    // let material_handle = world
-    //     .get_resource::<TerrainMaterials>()
-    //     .expect("expected TerrainMaterials resource to exist")
-    //     .standard
-    //     .clone();
+    let material_handle = world
+        .get_resource::<TerrainMaterials>()
+        .expect("expected TerrainMaterials resource to exist")
+        .standard
+        .clone();
 
     debug_assert!(world.get_by_id(entity, id).is_some());
 
@@ -99,16 +99,14 @@ fn on_add_body(mut world: DeferredWorld, entity: Entity, id: ComponentId) {
             .deref::<Body>()
     };
     #[cfg(debug_assertions)]
-    world
-        .commands()
-        .entity(entity)
-        .insert((
-            body.name(),
-            // TerrainMaterial::Standard(material_handle),
-            CubeTree::new(body.radius),
-            GravityField::radial_from_mass(body.mass),
-        ));
-        // .trigger(GenerateMeshes(Vector::MAX));
+    world.commands().entity(entity).insert((
+        body.name(),
+        TerrainMaterial::Standard(material_handle),
+        CubeTree::new(body.radius),
+        GravityField::radial_from_mass(body.mass),
+        Radius(body.radius),
+    ))
+    .trigger(GenerateMeshes(Vector::MAX));
 
     #[cfg(not(debug_assertions))]
     world
@@ -127,6 +125,14 @@ impl Default for Body {
 #[derive(Component, Reflect, Debug)]
 #[reflect(Component)]
 pub struct Radius(pub Scalar);
+
+impl Deref for Radius {
+    type Target = Scalar;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Component, Debug)]
 #[require(Name(|| Name::new("Chunk")), Visibility)]

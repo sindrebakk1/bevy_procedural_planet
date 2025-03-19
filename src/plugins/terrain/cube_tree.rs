@@ -53,8 +53,8 @@ impl Axis {
     }
 }
 
-impl From<u16> for Axis {
-    fn from(value: u16) -> Self {
+impl From<u32> for Axis {
+    fn from(value: u32) -> Self {
         match value {
             0 => Axis::X,
             1 => Axis::Y,
@@ -154,17 +154,56 @@ impl std::ops::Mul<f32> for &Axis {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ChunkHash(u16);
+pub struct ChunkHash(u32);
 
 impl ChunkHash {
+    pub fn new(
+        axis: Axis,
+        depth: u8,
+        collider: bool,
+        path: [Quadrant; 7],
+    ) -> Self {
+        debug_assert!(depth <= 63, "depth is too large for 6 bits");
+        let mut hash = (axis as u32) & 0b111;
+        hash |= (depth as u32 & 0b111_111) << 3;
+        hash |= (collider as u32) << 9;
+        for (i, &quadrant) in path.iter().enumerate() {
+            let shift = 10 + (i * 3);
+            hash |= (quadrant as u32 & 0b111) << shift;
+        }
+        Self(hash)
+    }
     #[inline]
-    pub fn new(axis: Axis, quadrant: Quadrant, collider: bool, depth: u8) -> Self {
-        let axis_bits = (axis as u16) & 0b111;
-        let quadrant_bits = (quadrant as u16 & 0b111) << 3;
-        let collider_bit = (collider as u16) << 6;
-        let depth_bits = (depth as u16) << 7;
+    pub fn new_root(
+        axis: Axis,
+    ) -> Self {
+        Self::new(axis, 0, false, [Quadrant::ROOT; 7])
+    }
 
-        Self(axis_bits | quadrant_bits | collider_bit | depth_bits)
+    pub fn push_quadrant(&self, new_quadrant: Quadrant) -> Self {
+        let header_bits = self.0 & 0x3FF; // 0x3FF = 0b11_1111_1111 (first 10 bits)
+        let path_bits = (self.0 >> 10) & 0x7FFFFF; // 0x7FFFFF = 23 bits for 7 quadrants minus last one
+        let shifted_path = path_bits << 3;
+        let new_path = shifted_path | (new_quadrant as u32 & 0b111);
+        let result = header_bits | (new_path << 10);
+
+        Self(result)
+    }
+
+    #[inline]
+    pub fn with_depth(&self, depth: u8) -> Self {
+        debug_assert!(depth <= 63, "depth is too large for 6 bits");
+        Self((self.0 & !(0b111_111 << 3)) | ((depth as u32 & 0b111_111) << 3))
+    }
+
+    #[inline]
+    pub fn increment_depth(&self) -> Self {
+        self.with_depth(std::cmp::min(self.depth() + 1, 63))
+    }
+
+    #[inline]
+    pub fn with_collider(&self, collider: bool) -> Self {
+        Self((self.0 & !(0b1 << 9)) | ((collider as u32) << 9))
     }
 
     #[inline]
@@ -173,23 +212,28 @@ impl ChunkHash {
     }
 
     #[inline]
-    pub fn quadrant(&self) -> Quadrant {
-        Quadrant::from((self.0 >> 3) & 0b111)
+    pub fn depth(&self) -> u8 {
+        ((self.0 >> 3) & 0b111_111) as u8
     }
 
     #[inline]
     pub fn collider(&self) -> bool {
-        (self.0 >> 6) & 0b1 != 0
+        ((self.0 >> 9) & 0b1) != 0
     }
 
     #[inline]
-    pub fn depth(&self) -> u8 {
-        ((self.0 >> 7) & 0b1111_1111) as u8
+    pub fn path(&self) -> [Quadrant; 7] {
+        let mut path = [Quadrant::ROOT; 7];
+        for i in 0..7 {
+            let shift = 10 + (i * 3);
+            path[i] = Quadrant::from((self.0 >> shift) & 0b111);
+        }
+        path
     }
 
     #[inline]
-    pub fn values(&self) -> (Axis, Quadrant, bool, u8) {
-        (self.axis(), self.quadrant(), self.collider(), self.depth())
+    pub fn values(&self) -> (Axis, u8, [Quadrant; 7], bool) {
+        (self.axis(), self.depth(), self.path(), self.collider())
     }
 }
 
@@ -202,15 +246,24 @@ pub struct ChunkData {
 impl ChunkData {
     pub fn new(
         axis: Axis,
-        quadrant: Quadrant,
-        collider: bool,
-        depth: u8,
-        radius: Scalar,
         bounds: &Rectangle,
+        radius: Scalar,
+        hash: ChunkHash,
     ) -> Self {
         Self {
             center: center_on_sphere(axis, radius, bounds),
-            hash: ChunkHash::new(axis, quadrant, collider, depth),
+            hash,
+        }
+    }
+
+    pub fn new_root(
+        axis: Axis,
+        bounds: &Rectangle,
+        radius: Scalar,
+    ) -> Self {
+        Self {
+            center: center_on_sphere(axis, radius, bounds),
+            hash: ChunkHash::new_root(axis),
         }
     }
 }
@@ -219,7 +272,6 @@ pub type CubeTreeNode = QuadTreeNode<ChunkData>;
 
 #[derive(Component, Clone, Debug)]
 pub struct CubeTree {
-    subdivisions: usize,
     pub radius: Scalar,
     pub faces: [CubeTreeNode; 6],
 }
@@ -232,31 +284,12 @@ impl CubeTree {
     pub fn new(radius: Scalar) -> Self {
         let bounds = Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(radius));
         Self {
-            subdivisions: 0,
             radius,
             faces: Axis::ALL.map(|axis| {
-                CubeTreeNode::new(
-                    bounds,
-                    ChunkData::new(axis, Quadrant::ROOT, false, 0, radius, &bounds),
-                )
-            }),
-        }
-    }
-
-    pub fn with_subdivisions(radius: Scalar, subdivisions: usize) -> Self {
-        let bounds = Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(radius));
-        Self {
-            subdivisions,
-            radius,
-            faces: Axis::ALL.map(|axis| {
-                let mut root = CubeTreeNode::new(
-                    bounds,
-                    ChunkData::new(axis, Quadrant::ROOT, false, 0, radius, &bounds),
-                );
-                root.subdivide_recursive_with(subdivisions, |quadrant, depth, bounds, data| {
-                    ChunkData::new(axis, quadrant, false, depth as u8, radius, bounds)
-                });
-                root
+                let hash = ChunkHash::new_root(axis);
+                CubeTreeNode::new_subdivided(bounds, |(quadrant, bounds)| {
+                    ChunkData::new(axis, bounds, radius, hash.with_depth(1).push_quadrant(quadrant))
+                })
             }),
         }
     }
@@ -264,18 +297,12 @@ impl CubeTree {
     pub fn insert(&mut self, point: Vector) {
         let bounds = Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(self.radius));
         for axis in Axis::ALL {
-            let mut new_node = CubeTreeNode::new(
-                bounds,
-                ChunkData::new(axis, Quadrant::ROOT, false, 0, self.radius, &bounds),
-            );
-            new_node.subdivide_recursive_with(
-                self.subdivisions,
-                |quadrant, depth, bounds, data| {
-                    ChunkData::new(axis, quadrant, false, depth as u8, self.radius, bounds)
-                },
-            );
-            new_node.insert_with(
-                |bounds, data| {
+            let hash = ChunkHash::new_root(axis);
+            let mut new_node = CubeTreeNode::new_subdivided(bounds, |(quadrant, bounds)| {
+                ChunkData::new(axis, bounds, self.radius, hash.with_depth(1).push_quadrant(quadrant))
+            });
+            new_node.insert(
+                |(bounds, data)| {
                     let size = bounds.size().x;
                     if size <= Self::MIN_SIZE
                         || data.center.distance(point) > size * Self::THRESHOLD
@@ -284,15 +311,8 @@ impl CubeTree {
                     }
                     false
                 },
-                |quadrant, bounds, data| {
-                    ChunkData::new(
-                        axis,
-                        quadrant,
-                        false,
-                        data.hash.depth() + 1,
-                        self.radius,
-                        bounds,
-                    )
+                |(quadrant, bounds, data)| {
+                    ChunkData::new(axis, bounds, self.radius, data.hash.increment_depth().push_quadrant(quadrant))
                 },
             );
             self[axis] = new_node;
@@ -340,8 +360,6 @@ impl Index<Axis> for CubeTree {
     type Output = CubeTreeNode;
 
     fn index(&self, index: Axis) -> &Self::Output {
-        // Logic to find and return a reference to the element
-        // at the specified index
         &self.faces[index as usize]
     }
 }
@@ -349,8 +367,6 @@ impl Index<Axis> for CubeTree {
 // Implement IndexMut trait to enable mutable indexing
 impl IndexMut<Axis> for CubeTree {
     fn index_mut(&mut self, index: Axis) -> &mut Self::Output {
-        // Logic to find and return a mutable reference to the element
-        // at the specified index
         &mut self.faces[index as usize]
     }
 }
@@ -439,5 +455,137 @@ impl<'a, const CAPACITY: usize> Iterator for CubeTreeIterMut<'a, CAPACITY> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_chunk_hash() {
+        // Setup
+        let axis = Axis::X;
+        let depth = 5;
+        let collider = false;
+        let path = [
+            Quadrant::NW,
+            Quadrant::NE,
+            Quadrant::SW,
+            Quadrant::SE,
+            Quadrant::NW,
+            Quadrant::NE,
+            Quadrant::SW,
+        ];
+
+        // Create a new ChunkHash
+        let hash = ChunkHash::new(axis, depth, collider, path);
+
+        // Verify by extracting fields
+        assert_eq!(hash.axis(), axis);
+        assert_eq!(hash.depth(), depth);
+        assert_eq!(hash.collider(), collider);
+        assert_eq!(hash.path(), path);
+    }
+
+    #[test]
+    fn test_new_root() {
+        let axis = Axis::Y;
+        let hash = ChunkHash::new_root(axis);
+
+        assert_eq!(hash.axis(), axis);
+        assert_eq!(hash.depth(), 0);
+        assert_eq!(hash.collider(), false);
+        assert_eq!(hash.path(), [Quadrant::ROOT; 7]);
+    }
+
+    #[test]
+    fn test_push_quadrant() {
+        // Setup - create an initial hash
+        let axis = Axis::Z;
+        let depth = 3;
+        let collider = true;
+        let path = [
+            Quadrant::NW,
+            Quadrant::NE,
+            Quadrant::SW,
+            Quadrant::SE,
+            Quadrant::NW,
+            Quadrant::NE,
+            Quadrant::SW,
+        ];
+
+        let initial_hash = ChunkHash::new(axis, depth, collider, path);
+
+        // Push a new quadrant to the front
+        let new_quadrant = Quadrant::SE;
+        let updated_hash = initial_hash.push_quadrant(new_quadrant);
+
+        // Expected new path: the new quadrant at the front, and the last one dropped
+        let expected_path = [
+            Quadrant::SE,
+            Quadrant::NW,
+            Quadrant::NE,
+            Quadrant::SW,
+            Quadrant::SE,
+            Quadrant::NW,
+            Quadrant::NE,
+        ];
+
+        // Verify the path was updated correctly
+        assert_eq!(updated_hash.path(), expected_path);
+
+        // Verify other fields remained unchanged
+        assert_eq!(updated_hash.axis(), axis);
+        assert_eq!(updated_hash.depth(), depth);
+        assert_eq!(updated_hash.collider(), collider);
+    }
+
+    #[test]
+    fn test_with_depth() {
+        let initial_hash = ChunkHash::new_root(Axis::X);
+        let new_depth = 42;
+        let updated_hash = initial_hash.with_depth(new_depth);
+
+        assert_eq!(updated_hash.depth(), new_depth);
+        assert_eq!(updated_hash.axis(), initial_hash.axis());
+        assert_eq!(updated_hash.collider(), initial_hash.collider());
+        assert_eq!(updated_hash.path(), initial_hash.path());
+    }
+
+    #[test]
+    fn test_with_collider() {
+        let initial_hash = ChunkHash::new_root(Axis::Y);
+        let updated_hash = initial_hash.with_collider(true);
+
+        assert_eq!(updated_hash.collider(), true);
+        assert_eq!(updated_hash.axis(), initial_hash.axis());
+        assert_eq!(updated_hash.depth(), initial_hash.depth());
+        assert_eq!(updated_hash.path(), initial_hash.path());
+    }
+
+    #[test]
+    fn test_values() {
+        let axis = Axis::Z;
+        let depth = 7;
+        let collider = true;
+        let path = [Quadrant::ROOT; 7];
+
+        let hash = ChunkHash::new(axis, depth, collider, path);
+        let (extracted_axis, extracted_depth, extracted_path, extracted_flag) = hash.values();
+
+        assert_eq!(extracted_axis, axis);
+        assert_eq!(extracted_depth, depth);
+        assert_eq!(extracted_path, path);
+        // Note: The method signature shows values() returning flag, but the implementation calls self.flag()
+        // which doesn't exist. I'll assume it should call self.collider() instead.
+        assert_eq!(extracted_flag, collider);
+    }
+
+    #[test]
+    #[should_panic(expected = "depth is too large for 6 bits")]
+    fn test_depth_too_large() {
+        // This should panic because depth > 63
+        ChunkHash::new(Axis::X, 64, false, [Quadrant::ROOT; 7]);
     }
 }

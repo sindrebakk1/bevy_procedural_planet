@@ -1,7 +1,8 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
-use avian3d::math::Scalar;
+use avian3d::math::{Scalar, Vector};
+use bevy::color::palettes::css::FUCHSIA;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -12,7 +13,7 @@ use procedural_planet::{
     plugins::terrain::{cube_tree::Axis, mesh::ChunkMeshBuilder},
 };
 
-const RADIUS: Scalar = 200.0;
+const RADIUS: Scalar = 20000.0;
 const SUBDIVISIONS: usize = 5;
 
 fn main() {
@@ -59,7 +60,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let mut tree = CubeTree::with_subdivisions(RADIUS, 1);
-    tree.insert(Axis::NegY * RADIUS);
+    let point = (Vector::Y + Vector::X + Vector::Z) * RADIUS * 0.56;
+    tree.insert(point);
     let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(RADIUS);
     let materials = Axis::ALL.map(|axis| {
         #[cfg(feature = "f64")]
