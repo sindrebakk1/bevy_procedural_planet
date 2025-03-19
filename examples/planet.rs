@@ -2,20 +2,17 @@
 #![feature(generic_const_exprs)]
 
 use avian3d::math::*;
-use avian3d::parry::na::SimdBool;
-use bevy::color::palettes::css::{DARK_SEA_GREEN, FOREST_GREEN, INDIAN_RED, OLIVE};
+use bevy::color::palettes::css::{DARK_SEA_GREEN, INDIAN_RED};
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_panorbit_camera::PanOrbitCamera;
 use big_space::camera::{CameraController, CameraControllerPlugin};
 use big_space::prelude::*;
 
 use procedural_planet::materials::GlobalMaterialsPlugin;
 use procedural_planet::plugins::player::controls::grab_ungrab_mouse;
-use procedural_planet::plugins::terrain::body::ChunkCache;
 use procedural_planet::plugins::terrain::cube_tree::{ChunkHash, CubeTree};
 use procedural_planet::plugins::terrain::{Body, BodyPreset, GenerateMeshes, Radius};
 // use procedural_planet::plugins::terrain::material::TerrainMaterials;
@@ -31,7 +28,6 @@ fn main() {
             BigSpacePlugin::<i64>::default(),
             FloatingOriginDebugPlugin::<i64>::default(),
             GlobalMaterialsPlugin,
-            // TerrainPlugin::<PlayerCamera, 5>::default(),
             CameraControllerPlugin::<i64>::default(),
         ))
         .init_resource::<ChunkMaterials>()
@@ -201,7 +197,7 @@ impl FromWorld for ChunkMaterials {
 fn generate_meshes<const SUBDIVISIONS: usize>(
     trigger: Trigger<GenerateMeshes>,
     mut commands: Commands,
-    mut planet_query: Query<(&CubeTree, &Grid<i64>, &GridCell<i64>, &Transform), With<Body>>,
+    planet_query: Query<(&CubeTree, &Grid<i64>, &GridCell<i64>, &Transform), With<Body>>,
     mut spawned_chunks: Local<Vec<Entity>>,
     mut meshes: ResMut<Assets<Mesh>>,
     materials: Res<ChunkMaterials>,
@@ -229,12 +225,11 @@ fn generate_meshes<const SUBDIVISIONS: usize>(
                 .spawn(ChunkBundle(
                     Name::new(format!("{:?}", data.hash.values())),
                     Mesh3d(meshes.add(mesh_builder.build(&bounds, &data))),
-                    MeshMaterial3d(
-                        hash_set
-                            .contains(&data.hash)
-                            .then_some(materials.error())
-                            .unwrap_or(materials.standard()),
-                    ),
+                    MeshMaterial3d(if hash_set.contains(&data.hash) {
+                        materials.error()
+                    } else {
+                        materials.standard()
+                    }),
                     grid_cell,
                     Transform::from_translation(translation),
                 ))

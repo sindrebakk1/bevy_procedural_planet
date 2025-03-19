@@ -2,7 +2,6 @@
 #![feature(generic_const_exprs)]
 
 use avian3d::math::{Scalar, Vector};
-use bevy::color::palettes::css::FUCHSIA;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -59,7 +58,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut tree = CubeTree::with_subdivisions(RADIUS, 1);
+    let mut tree = CubeTree::new(RADIUS);
     let point = (Vector::Y + Vector::X + Vector::Z) * RADIUS * 0.56;
     tree.insert(point);
     let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(RADIUS);

@@ -157,12 +157,7 @@ impl std::ops::Mul<f32> for &Axis {
 pub struct ChunkHash(u32);
 
 impl ChunkHash {
-    pub fn new(
-        axis: Axis,
-        depth: u8,
-        collider: bool,
-        path: [Quadrant; 7],
-    ) -> Self {
+    pub fn new(axis: Axis, depth: u8, collider: bool, path: [Quadrant; 7]) -> Self {
         debug_assert!(depth <= 63, "depth is too large for 6 bits");
         let mut hash = (axis as u32) & 0b111;
         hash |= (depth as u32 & 0b111_111) << 3;
@@ -174,9 +169,7 @@ impl ChunkHash {
         Self(hash)
     }
     #[inline]
-    pub fn new_root(
-        axis: Axis,
-    ) -> Self {
+    pub fn new_root(axis: Axis) -> Self {
         Self::new(axis, 0, false, [Quadrant::ROOT; 7])
     }
 
@@ -244,23 +237,14 @@ pub struct ChunkData {
 }
 
 impl ChunkData {
-    pub fn new(
-        axis: Axis,
-        bounds: &Rectangle,
-        radius: Scalar,
-        hash: ChunkHash,
-    ) -> Self {
+    pub fn new(axis: Axis, bounds: &Rectangle, radius: Scalar, hash: ChunkHash) -> Self {
         Self {
             center: center_on_sphere(axis, radius, bounds),
             hash,
         }
     }
 
-    pub fn new_root(
-        axis: Axis,
-        bounds: &Rectangle,
-        radius: Scalar,
-    ) -> Self {
+    pub fn new_root(axis: Axis, bounds: &Rectangle, radius: Scalar) -> Self {
         Self {
             center: center_on_sphere(axis, radius, bounds),
             hash: ChunkHash::new_root(axis),
@@ -288,7 +272,12 @@ impl CubeTree {
             faces: Axis::ALL.map(|axis| {
                 let hash = ChunkHash::new_root(axis);
                 CubeTreeNode::new_subdivided(bounds, |(quadrant, bounds)| {
-                    ChunkData::new(axis, bounds, radius, hash.with_depth(1).push_quadrant(quadrant))
+                    ChunkData::new(
+                        axis,
+                        bounds,
+                        radius,
+                        hash.with_depth(1).push_quadrant(quadrant),
+                    )
                 })
             }),
         }
@@ -299,7 +288,12 @@ impl CubeTree {
         for axis in Axis::ALL {
             let hash = ChunkHash::new_root(axis);
             let mut new_node = CubeTreeNode::new_subdivided(bounds, |(quadrant, bounds)| {
-                ChunkData::new(axis, bounds, self.radius, hash.with_depth(1).push_quadrant(quadrant))
+                ChunkData::new(
+                    axis,
+                    bounds,
+                    self.radius,
+                    hash.with_depth(1).push_quadrant(quadrant),
+                )
             });
             new_node.insert(
                 |(bounds, data)| {
@@ -312,7 +306,12 @@ impl CubeTree {
                     false
                 },
                 |(quadrant, bounds, data)| {
-                    ChunkData::new(axis, bounds, self.radius, data.hash.increment_depth().push_quadrant(quadrant))
+                    ChunkData::new(
+                        axis,
+                        bounds,
+                        self.radius,
+                        data.hash.increment_depth().push_quadrant(quadrant),
+                    )
                 },
             );
             self[axis] = new_node;

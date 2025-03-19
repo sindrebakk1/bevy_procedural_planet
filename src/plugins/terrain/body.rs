@@ -99,14 +99,17 @@ fn on_add_body(mut world: DeferredWorld, entity: Entity, id: ComponentId) {
             .deref::<Body>()
     };
     #[cfg(debug_assertions)]
-    world.commands().entity(entity).insert((
-        body.name(),
-        TerrainMaterial::Standard(material_handle),
-        CubeTree::new(body.radius),
-        GravityField::radial_from_mass(body.mass),
-        Radius(body.radius),
-    ))
-    .trigger(GenerateMeshes(Vector::MAX));
+    world
+        .commands()
+        .entity(entity)
+        .insert((
+            body.name(),
+            TerrainMaterial::Standard(material_handle),
+            CubeTree::new(body.radius),
+            GravityField::radial_from_mass(body.mass),
+            Radius(body.radius),
+        ))
+        .trigger(GenerateMeshes(Vector::MAX));
 
     #[cfg(not(debug_assertions))]
     world
