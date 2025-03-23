@@ -50,6 +50,8 @@ pub type CreateDataArgs<'a, T> = (Quadrant, &'a Rectangle, &'a T);
 
 pub type PredicateArgs<'a, T> = (&'a Rectangle, &'a T);
 
+pub type PredicateMutArgs<'a, T> = (&'a Rectangle, &'a mut T);
+
 impl<T: Clone> QuadTreeNode<T> {
     /// Creates a new leaf node with given bounds and data.
     #[inline]
@@ -97,6 +99,35 @@ impl<T: Clone> QuadTreeNode<T> {
                 }
                 self.subdivided(create_data)
                     .insert_impl(predicate, create_data);
+            }
+        }
+    }
+
+    pub fn insert_mut<P, F>(&mut self, mut predicate: P, create_data: F)
+    where
+        P: FnMut(PredicateMutArgs<T>) -> bool,
+        F: Fn(CreateDataArgs<T>) -> T,
+    {
+        self.insert_mut_impl(&mut predicate, &create_data)
+    }
+
+    fn insert_mut_impl<P, F>(&mut self, predicate: &mut P, create_data: &F)
+    where
+        P: FnMut(PredicateMutArgs<T>) -> bool,
+        F: Fn(CreateDataArgs<T>) -> T,
+    {
+        match self {
+            QuadTreeNode::Internal { children, .. } => {
+                for child in children {
+                    child.insert_mut_impl(predicate, create_data);
+                }
+            }
+            QuadTreeNode::Leaf { bounds, data } => {
+                if predicate((&*bounds, data)) {
+                    return;
+                }
+                self.subdivided(create_data)
+                    .insert_mut_impl(predicate, create_data);
             }
         }
     }

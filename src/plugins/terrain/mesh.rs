@@ -71,7 +71,7 @@ where
                 {
                     positions[index] = (pos - chunk_data.center).as_vec3().to_array();
                     normals[index] = normal.as_vec3().to_array();
-                    uvs[index] = spherical_uv(pos).as_vec2().to_array();
+                    uvs[index] = spherical_uv(normal).as_vec2().to_array();
                 }
 
                 #[cfg(not(feature = "f64"))]
@@ -133,8 +133,6 @@ where
                 }
             }
         }
-
-        info_once!("uvs: {uvs:?}");
 
         Mesh::new(
             PrimitiveTopology::TriangleList,

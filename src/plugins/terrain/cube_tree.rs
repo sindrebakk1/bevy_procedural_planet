@@ -264,6 +264,7 @@ pub struct CubeTree {
 impl CubeTree {
     const MIN_SIZE: Scalar = 24.0;
     const THRESHOLD: Scalar = 1.5;
+    const COLLIDER_RADIUS: Scalar = 24.0;
 
     pub fn new(radius: Scalar) -> Self {
         let bounds = Rectangle::from_center_half_size(Vector2::ZERO, Vector2::splat(radius));
@@ -295,12 +296,14 @@ impl CubeTree {
                     hash.with_depth(1).push_quadrant(quadrant),
                 )
             });
-            new_node.insert(
+            new_node.insert_mut(
                 |(bounds, data)| {
                     let size = bounds.size().x;
-                    if size <= Self::MIN_SIZE
-                        || data.center.distance(point) > size * Self::THRESHOLD
-                    {
+                    if size <= Self::MIN_SIZE {
+                        data.hash = data.hash.with_collider(true);
+                        return true;
+                    }
+                    if data.center.distance(point) > size * Self::THRESHOLD {
                         return true;
                     }
                     false

@@ -80,7 +80,7 @@ fn setup(mut commands: Commands) {
     commands.spawn_big_space_default(|root: &mut GridCommands<i64>| {
         root.insert(Name::new("System"));
         root.with_grid_default(|planet| {
-            let body_preset = BodyPreset::EARTH;
+            let body_preset = BodyPreset::EARTH / 10.0;
             camera_pos = Vector::X * body_preset.radius * 1.2;
 
             planet.insert((Body::from_preset(body_preset), Name::new("Planet")));

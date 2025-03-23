@@ -2,6 +2,7 @@
 #![feature(generic_const_exprs)]
 
 use avian3d::math::{Scalar, Vector};
+use bevy::color::palettes::basic::FUCHSIA;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -31,7 +32,8 @@ fn main() {
             color: Color::WHITE,
             brightness: 200.0,
         })
-        .add_systems(Startup, setup);
+        .add_systems(Startup, setup)
+        .add_systems(Update, draw_gizmos);
 
     app.run();
 }
@@ -41,6 +43,7 @@ pub struct ChunkBundle {
     mesh_3d: Mesh3d,
     material: MeshMaterial3d<StandardMaterial>,
     transform: Transform,
+    aabb_gizmo: ShowAabbGizmo,
 }
 
 impl ChunkBundle {
@@ -49,6 +52,9 @@ impl ChunkBundle {
             mesh_3d: Mesh3d(mesh),
             material: MeshMaterial3d(material),
             transform: Transform::from_translation(translation),
+            aabb_gizmo: ShowAabbGizmo {
+                color: Some(FUCHSIA.into()),
+            },
         }
     }
 }
@@ -91,4 +97,10 @@ fn setup(
         radius: Some((RADIUS * 3.0) as f32),
         ..Default::default()
     });
+}
+
+fn draw_gizmos(mut gizmos: Gizmos, chunk_query: Query<&GlobalTransform, With<Mesh3d>>) {
+    for pos in chunk_query.iter() {
+        gizmos.sphere(pos.translation(), 100.0, FUCHSIA);
+    }
 }

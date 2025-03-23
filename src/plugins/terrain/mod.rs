@@ -1,6 +1,6 @@
 #![allow(warnings)]
 
-use avian3d::math::{AdjustPrecision, Scalar};
+use avian3d::math::{AdjustPrecision, PI, Scalar};
 use avian3d::{math::Vector, prelude::Collider};
 use bevy::utils::HashMap;
 use bevy::{
@@ -11,6 +11,7 @@ use bevy::{
 };
 use big_space::grid::Grid;
 use big_space::prelude::GridCell;
+use lazy_static::lazy_static;
 
 pub mod body;
 pub mod cube_tree;
@@ -20,6 +21,7 @@ pub mod mesh;
 
 #[cfg(debug_assertions)]
 mod debug;
+mod height;
 
 pub use body::{Body, BodyPreset, Radius};
 
@@ -31,7 +33,14 @@ use cube_tree::{ChunkData, ChunkHash, CubeTree};
 use material::TerrainMaterials;
 use mesh::ChunkMeshBuilder;
 
-const CHUNK_CULLING_ANGLE: Scalar = 90.0;
+const NORMAL_CULLING_LEEWAY_DEGREES: Scalar = 20.0;
+
+lazy_static! {
+    // Pre-compute the cosine threshold once
+    static ref CHUNK_CULLING_THRESHOLD: Scalar = {
+        Scalar::cos((90.0 + NORMAL_CULLING_LEEWAY_DEGREES).to_radians())
+    };
+}
 
 #[derive(Event, Copy, Clone, Default)]
 pub struct GenerateMeshes(pub Vector);
@@ -154,23 +163,33 @@ fn generate_meshes<const SUBDIVISIONS: usize>(
     [(); (SUBDIVISIONS + 2).pow(2)]:,
     [(); (SUBDIVISIONS + 1).pow(2) * 6]:,
 {
-    // let target_position = trigger.0;
+    let target_position = trigger.0;
     let entity = trigger.entity();
     let thread_pool = AsyncComputeTaskPool::get();
 
     for (cube_tree, grid, grid_cell, transform, radius, mut chunk_cache) in planet_query.iter_mut()
     {
-        let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(radius.0);
+        let filtered_chunks: Vec<(&Rectangle, &ChunkData)> = cube_tree
+            .iter()
+            .filter(|(bounds, data)| {
+                let vector_to_target = target_position - data.center;
+                if vector_to_target.length_squared() < 1e-6 {
+                    return true;
+                }
+                data.center.normalize().dot(vector_to_target.normalize()) > *CHUNK_CULLING_THRESHOLD
+            })
+            .collect();
         let mut hash_set: HashSet<ChunkHash> =
-            HashSet::from_iter(cube_tree.iter().map(|(_, data)| data.hash));
+            HashSet::from_iter(filtered_chunks.iter().map(|(_, data)| data.hash));
 
         for (_, entity) in chunk_cache.extract_if(|bounds, _| !hash_set.contains(bounds)) {
             commands.entity(entity).insert(DespawnChunk);
         }
 
         let planet_pos = (grid as &Grid<Precision>).grid_position_double(grid_cell, transform);
+        let mesh_builder = ChunkMeshBuilder::<SUBDIVISIONS>::new(radius.0);
 
-        for (&bounds, &data) in cube_tree.iter() {
+        for (&bounds, &data) in filtered_chunks.iter() {
             if chunk_cache.contains_key(&data.hash) {
                 continue;
             }
@@ -206,7 +225,10 @@ fn generate_meshes<const SUBDIVISIONS: usize>(
 
                     if let Ok(mut entity_mut) = world.get_entity_mut(chunk_entity) {
                         match collider {
-                            Some(collider) => entity_mut.insert((collider, Mesh3d(mesh_handle))),
+                            Some(collider) => entity_mut.insert((
+                                collider,
+                                Mesh3d(mesh_handle),
+                            )),
                             None => entity_mut.insert(Mesh3d(mesh_handle)),
                         };
                     }

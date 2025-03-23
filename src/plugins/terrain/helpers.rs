@@ -75,9 +75,10 @@ pub fn unit_sphere_to_cube(pos: Vector, iterations: usize) -> Vector {
     Vector::new(cube_x, cube_y, cube_z)
 }
 
-pub fn spherical_uv(pos: Vector) -> Vector2 {
-    let phi = pos.z.atan2(pos.x); // Azimuth
-    let theta = (pos.y).acos(); // Elevation
+pub fn spherical_uv(normal: Vector) -> Vector2 {
+    debug_assert!(normal.is_normalized(), "normal vector passed to spherical_uv must be normalized");
+    let phi = normal.z.atan2(normal.x); // Azimuth
+    let theta = (normal.y).acos(); // Elevation
     let u = phi / (2.0 * PI) + 0.5;
     let v = theta / PI;
     Vector2::new(u, v)
@@ -85,14 +86,9 @@ pub fn spherical_uv(pos: Vector) -> Vector2 {
 
 pub fn center_on_sphere(axis: Axis, radius: Scalar, bounds: &Rectangle) -> Vector {
     let (axis_normal, local_x, local_y) = AXIS_COORDINATE_FRAMES[&axis];
-    let size = Vector2::splat(radius * 2.0);
-
-    let bounds_min = bounds.min / size;
-    let bounds_max = bounds.max / size;
-
-    let center_pos_on_cube = axis_normal
-        + ((bounds_min.x + bounds_max.x) / 2.0) * local_x
-        + ((bounds_min.y + bounds_max.y) / 2.0) * local_y;
-
-    unit_cube_to_sphere(center_pos_on_cube) * radius
+    unit_cube_to_sphere(
+        axis_normal
+            + local_x * (2.0 * ((bounds.min.x + bounds.max.x) / (radius * 4.0)))
+            + local_y * (2.0 * ((bounds.min.y + bounds.max.y) / (radius * 4.0))),
+    ) * radius
 }
